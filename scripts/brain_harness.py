@@ -108,13 +108,27 @@ class Gates:
 
 @dataclass
 class BrainClient:
-    """Lightweight client for the BRAIN HTTP API."""
+    """Lightweight client for the BRAIN HTTP API.
+
+    Security:
+      - email and password are NEVER printed or included in __repr__.
+      - password is read from environment variables or .env, NOT from CLI
+        args (which would expose it in `ps`, shell history, and CI logs).
+      - if repr() or str() is called on this object, credentials show as
+        '***' so accidental logging doesn't leak them.
+    """
     base_url: str = BRAIN_API_BASE
     email: str = ""
     password: str = ""
     mock: bool = False
     session: requests.Session = field(default_factory=requests.Session)
     cookies: dict = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        return (
+            f"BrainClient(base_url={self.base_url!r}, email={self.email!r}, "
+            f"password='***', mock={self.mock})"
+        )
 
     def authenticate(self) -> None:
         if self.mock:
@@ -141,7 +155,12 @@ class BrainClient:
         body = resp.json()
         sim_id = body.get("id") or body.get("simulation_id")
         if not sim_id:
-            raise RuntimeError(f"BRAIN /simulate returned no id; payload was {body!r}")
+            # Don't dump the response body — it could contain echoed
+            # credentials or session metadata.
+            raise RuntimeError(
+                f"BRAIN /simulate returned no id; status={resp.status_code}, "
+                f"keys={sorted(body.keys()) if isinstance(body, dict) else type(body).__name__}"
+            )
         return sim_id
 
     def fetch_simulation(self, sim_id: str) -> dict:
@@ -311,7 +330,10 @@ def cmd_submit(args, client: BrainClient, gates: Gates) -> int:
             print(f"Skipping {f.name}: no sim_id field.", file=sys.stderr)
             continue
         resp = client.submit_alpha(sim_id)
-        print(f"Submitted {sim_id}: {resp}")
+        # Sanitize the response print: just show the status field, not
+        # the full body (which could include session metadata).
+        status = resp.get("status", "?") if isinstance(resp, dict) else "?"
+        print(f"Submitted {sim_id}: status={status}")
         submitted += 1
         if submitted >= args.max_per_day:
             print(f"Hit daily cap of {args.max_per_day}; stopping.")
@@ -341,8 +363,12 @@ def _load_grid(path: str) -> list[dict]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="WorldQuant BRAIN harness")
     p.add_argument("--mock", action="store_true", help="Offline mode (no network calls)")
-    p.add_argument("--email", default=os.environ.get("BRAIN_EMAIL", ""))
-    p.add_argument("--password", default=os.environ.get("BRAIN_PASSWORD", ""))
+    # NOTE: credentials come from environment variables (BRAIN_EMAIL /
+    # BRAIN_PASSWORD) or .env, NEVER from CLI args. Exposing them as CLI
+    # flags would put them into shell history, process listings, and CI logs.
+    p.add_argument("--email", default=os.environ.get("BRAIN_EMAIL", ""),
+                   help="BRAIN account email (or set BRAIN_EMAIL env var; "
+                        "do not pass on the CLI in shared environments).")
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -380,7 +406,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    client = BrainClient(email=args.email, password=args.password, mock=args.mock)
+    # Password is sourced from env (NOT CLI) so it never lands in shell
+    # history, process listings, or CI logs.
+    password = os.environ.get("BRAIN_PASSWORD", "")
+    client = BrainClient(email=args.email, password=password, mock=args.mock)
     gates = Gates()
     return args.func(args, client, gates)
 

@@ -45,9 +45,11 @@ hypotheses, expected metrics, and variation hooks.
 ### Run the harness against BRAIN
 
 ```bash
-# Set your BRAIN credentials (NEVER commit these)
+# Set your BRAIN credentials via environment variables. The harness does
+# NOT accept a --password CLI flag on purpose: CLI args land in shell
+# history, process listings, and CI logs.
 export BRAIN_EMAIL="you@example.com"
-export BRAIN_PASSWORD="your-password"
+export BRAIN_PASSWORD="your-password"   # never commit this
 
 # Simulate a single alpha
 python scripts/brain_harness.py simulate \
