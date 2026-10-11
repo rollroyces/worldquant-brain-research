@@ -55,6 +55,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 try:
     import requests
@@ -122,7 +123,7 @@ class BrainClient:
     password: str = ""
     mock: bool = False
     session: requests.Session = field(default_factory=requests.Session)
-    cookies: dict = field(default_factory=dict)
+    cookies: dict[str, str] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         return (
@@ -206,7 +207,7 @@ def alpha_payload(expression: str, region: str, universe: str, delay: int,
     }
 
 
-def _mock_simulation_result(sim_id: str, alpha: dict | None) -> dict:
+def _mock_simulation_result(sim_id: str, alpha: dict[str, Any] | None) -> dict[str, Any]:
     """Deterministic synthetic result so --mock exercises the gate logic."""
     # Use the sim_id hash to make results repeatable for the same id.
     seed = int(sim_id[-8:], 16) if len(sim_id) >= 8 else hash(sim_id) & 0xFFFFFFFF
@@ -288,7 +289,7 @@ def cmd_batch(args, client: BrainClient, gates: Gates) -> int:
     return 0
 
 
-def _run_one(client: BrainClient, gates: Gates, row: dict) -> dict:
+def _run_one(client: BrainClient, gates: Gates, row: dict[str, str]) -> dict[str, Any]:
     payload = alpha_payload(
         expression=row["expression"], region=row.get("region", "USA"),
         universe=row.get("universe", "TOP3000"), delay=int(row.get("delay", 1)),
@@ -350,8 +351,8 @@ def cmd_gates(args, client: BrainClient, gates: Gates) -> int:
     return 0
 
 
-def _load_grid(path: str) -> list[dict]:
-    """Load a CSV grid of alpha definitions."""
+def _load_grid(path: str) -> list[dict[str, str]]:
+    """Load a CSV grid of alpha definitions (all values parsed as strings)."""
     with open(path) as f:
         return list(csv.DictReader(f))
 

@@ -51,12 +51,14 @@ def fitness(sharpe: float, returns: float, turnover: float,
     return sharpe * (abs(returns) / max(turnover, floor)) ** 0.5
 
 
-def evaluate(metrics: dict, gates: GateConfig = DEFAULT_GATES) -> tuple[bool, list[str]]:
+def evaluate(metrics: dict[str, float], gates: GateConfig = DEFAULT_GATES) -> tuple[bool, list[str]]:
     """Apply the gate thresholds to a metrics dict.
 
     Args:
-        metrics: dict with keys: sharpe, fitness, turnover, self_correlation,
-                 concentration, returns, drawdown. Missing keys default to 0.
+        metrics: dict mapping metric name (e.g. "sharpe", "fitness",
+                 "turnover", "self_correlation", "concentration",
+                 "returns", "drawdown") to a numeric value. Missing keys
+                 default to 0.
         gates:   GateConfig with thresholds.
 
     Returns:
@@ -104,6 +106,7 @@ def sub_universe_cutoff(alpha_sharpe: float, sub_size: int, full_size: int,
     return scale * (sub_size / full_size) ** 0.5 * alpha_sharpe
 
 
-def as_dict(gates: GateConfig = DEFAULT_GATES) -> dict:
-    """Return gates as a plain dict (for printing/JSON)."""
+def as_dict(gates: GateConfig = DEFAULT_GATES) -> dict[str, float]:
+    """Return gates as a plain dict (for printing/JSON). All GateConfig
+    fields are floats so the return type is precisely `dict[str, float]`."""
     return asdict(gates)

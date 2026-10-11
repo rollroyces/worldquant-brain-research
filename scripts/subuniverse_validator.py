@@ -135,6 +135,10 @@ def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str,
                            sub_col: str) -> dict[Any, float]:
     """Sharpe ratio of the alpha within each value of sub_col.
 
+    The keys are the actual values of `sub_col` (strings for typical
+    subindustry/sector columns, but Any covers other dtypes that pandas
+    groupby can produce).
+
     Pivots to a (date, stock_id) matrix first to avoid shape-mismatch bugs
     when the panel has missing rows.
     """
