@@ -21,19 +21,25 @@ What it does:
        - Fitness
        - Drawdown
        - Per-sub-universe Sharpe (for each group, e.g. subindustry)
-       - Pass/fail against all gates including the scaled sub-universe cutoff
+       - Pass/fail against all gates (including self-correlation) plus the
+         scaled sub-universe Sharpe cutoff
   3. Outputs a CSV with one row per alpha + a column for each metric + a
      final PASS/FAIL column + reasons for failure.
 
 Inputs:
-  --alphas         CSV with one row per alpha (column 'name' identifies it).
-                   Other columns are ignored; the alpha signal is read from
-                   the returns panel.
+  --alphas         Optional CSV with one row per alpha. The script actually
+                   reads alpha columns from the returns panel (columns
+                   starting with --alpha-prefix), so this argument is kept
+                   for documentation only.
   --returns-panel  Parquet or CSV with the columns above. Use the actual
-                   pnl from your local backtest engine — see README for how
-                   to wire this in.
+                   pnl from your local backtest engine.
   --sub-universe-column   Which column to slice on (default: subindustry).
   --output         Where to write the report CSV.
+  --alpha-prefix   Column prefix in the returns panel that holds alpha signals
+                   (default: alpha_).
+  --expected-self-correlation   If you have an estimate of max self-corr
+                   against your prior submitted alphas, pass it here; the
+                   validator will then enforce the gate (default: assume 0).
 
 Sub-universe Sharpe formula (from BRAIN docs):
   sub_sharpe >= 0.75 * sqrt(sub_size / full_size) * alpha_sharpe
@@ -55,7 +61,6 @@ import argparse
 import csv
 import math
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -66,52 +71,50 @@ except ImportError:
     print("This script requires pandas and numpy. Run: pip install pandas numpy", file=sys.stderr)
     sys.exit(1)
 
-
-# ---------------------------------------------------------------------------
-# Gates
-# ---------------------------------------------------------------------------
-
-@dataclass
-class Gates:
-    min_sharpe: float = 1.25
-    min_fitness: float = 1.0
-    turnover_min: float = 0.01
-    turnover_max: float = 0.70
-    max_concentration: float = 0.10
-    sub_universe_scale: float = 0.75
-    ideal_max_drawdown: float = 0.10
-    turnover_floor: float = 0.125     # the floor in the Fitness formula
+# Use the canonical gate logic from brainlib.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from brainlib.gates import (  # noqa: E402
+    DEFAULT_GATES,
+    GateConfig,
+    evaluate as gates_evaluate,
+    fitness as gates_fitness,
+    sub_universe_cutoff as gates_sub_universe_cutoff,
+)
 
 
 # ---------------------------------------------------------------------------
-# Metrics
+# Metrics (per-alpha)
 # ---------------------------------------------------------------------------
 
 def annualized_return(daily_returns: np.ndarray) -> float:
     """Compound daily returns into an annualized figure."""
-    return float((1 + daily_returns).prod() ** (252 / len(daily_returns)) - 1) if len(daily_returns) else 0.0
+    if len(daily_returns) == 0:
+        return 0.0
+    return float((1 + daily_returns).prod() ** (252 / len(daily_returns)) - 1)
 
 
 def sharpe(daily_returns: np.ndarray) -> float:
     """Annualized Sharpe ratio (assuming rf=0)."""
     if len(daily_returns) < 2:
         return 0.0
-    return float(daily_returns.mean() / daily_returns.std(ddof=1) * math.sqrt(252))
+    std = daily_returns.std(ddof=1)
+    # Use a tolerance: floating-point arithmetic can leave a near-zero std
+    # that would otherwise explode the ratio.
+    if std < 1e-12:
+        return 0.0
+    return float(daily_returns.mean() / std * math.sqrt(252))
 
 
 def max_drawdown(daily_returns: np.ndarray) -> float:
     """Maximum peak-to-trough drawdown of cumulative returns."""
-    cum = (1 + daily_returns).cumprod()
-    peak = cum.cummax()
-    dd = (cum - peak) / peak
-    return float(dd.min()) if len(dd) else 0.0
-
-
-def fitness(sharpe_val: float, returns_val: float, turnover_val: float, floor: float) -> float:
-    """The BRAIN Fitness formula: Sharpe * sqrt(|returns| / max(turnover, floor))."""
-    if turnover_val <= 0:
+    if len(daily_returns) == 0:
         return 0.0
-    return sharpe_val * math.sqrt(abs(returns_val) / max(turnover_val, floor))
+    cum = np.cumprod(1 + daily_returns)
+    peak = np.maximum.accumulate(cum)
+    # Avoid divide-by-zero on the very first bar.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dd = (cum - peak) / peak
+    return float(np.nanmin(dd))
 
 
 def turnover(weights: np.ndarray) -> float:
@@ -123,21 +126,29 @@ def turnover(weights: np.ndarray) -> float:
 
 def concentration(weights_today: np.ndarray) -> float:
     """Max absolute weight on any single stock (proxy for concentration)."""
-    return float(np.abs(weights_today).max()) if len(weights_today) else 0.0
+    if len(weights_today) == 0:
+        return 0.0
+    return float(np.abs(weights_today).max())
 
 
 def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str,
                            sub_col: str) -> dict[Any, float]:
-    """Sharpe ratio of the alpha within each value of sub_col."""
-    out = {}
+    """Sharpe ratio of the alpha within each value of sub_col.
+
+    Pivots to a (date, stock_id) matrix first to avoid shape-mismatch bugs
+    when the panel has missing rows.
+    """
+    out: dict[Any, float] = {}
     for sub, sub_panel in panel.groupby(sub_col):
-        # Re-compute daily pnl for this sub-universe only.
         sub_panel = sub_panel.sort_values("date")
-        # Daily portfolio weight per stock: alpha signal normalized within sub-universe.
-        w = sub_panel[alpha_col].values.reshape(-1, len(sub_panel["stock_id"].unique()))
-        # Daily returns per stock:
-        r = sub_panel["return"].values.reshape(w.shape)
-        # Daily pnl = sum(w * r) per day:
+        # Pivot to (date, stock_id) matrix; missing values become NaN → 0 weight.
+        wide = sub_panel.pivot(index="date", columns="stock_id", values=alpha_col)
+        wide_returns = sub_panel.pivot(index="date", columns="stock_id", values="return")
+        # Align (in case a stock appears in one pivot but not the other).
+        wide, wide_returns = wide.align(wide_returns, join="inner", axis=1)
+        w = wide.fillna(0.0).values
+        r = wide_returns.fillna(0.0).values
+        # Daily pnl: per-day sum of weight × return.
         daily_pnl = (w * r).sum(axis=1)
         out[sub] = sharpe(daily_pnl)
     return out
@@ -148,17 +159,17 @@ def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str,
 # ---------------------------------------------------------------------------
 
 def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
-                   gates: Gates) -> dict:
+                   gates: GateConfig, self_correlation: float) -> dict:
     """Evaluate one alpha; return metrics + pass/fail + reasons."""
     panel = panel.sort_values(["date", "stock_id"])
     alpha_signal = panel[alpha_col].values
     returns = panel["return"].values
 
-    # Daily pnl (sum of weight * return per day, collapsing stocks).
+    # Daily pnl (sum of weight × return per day, collapsing stocks).
     df = pd.DataFrame({"date": panel["date"].values, "pnl": alpha_signal * returns})
     daily_pnl = df.groupby("date")["pnl"].sum().values
 
-    # Weight per (date, stock).
+    # Weight per (date, stock) — pivot to handle missing (date, stock) pairs.
     weight_panel = panel.pivot(index="date", columns="stock_id", values=alpha_col)
     weights = weight_panel.fillna(0.0).values
 
@@ -173,7 +184,7 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
     ret = annualized_return(daily_pnl)
     shp = sharpe(daily_pnl)
     dd = max_drawdown(daily_pnl)
-    fit = fitness(shp, ret, to, gates.turnover_floor)
+    fit = gates_fitness(shp, ret, to, floor=gates.turnover_floor)
 
     # Sub-universe Sharpe.
     sub_sharpes = per_subuniverse_sharpe(panel, alpha_col, sub_col)
@@ -183,25 +194,28 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
     sub_cutoff_violations = []
     for sub, ssh in sub_sharpes.items():
         sub_size = panel[panel[sub_col] == sub]["stock_id"].nunique()
-        cutoff = gates.sub_universe_scale * math.sqrt(sub_size / full_size) * shp
+        cutoff = gates_sub_universe_cutoff(shp, sub_size, full_size,
+                                           scale=gates.sub_universe_scale)
         if ssh < cutoff:
             sub_cutoff_violations.append(f"{sub} ({ssh:.3f} < {cutoff:.3f})")
             worst_sub = sub
 
-    # Gate evaluation.
-    reasons = []
-    if shp < gates.min_sharpe:
-        reasons.append(f"Sharpe {shp:.3f} < {gates.min_sharpe}")
-    if fit < gates.min_fitness:
-        reasons.append(f"Fitness {fit:.3f} < {gates.min_fitness}")
-    if not (gates.turnover_min <= to <= gates.turnover_max):
-        reasons.append(f"Turnover {to:.3f} outside [{gates.turnover_min}, {gates.turnover_max}]")
-    if conc > gates.max_concentration:
-        reasons.append(f"Concentration {conc:.3f} > {gates.max_concentration}")
+    # Apply the canonical gate rules via brainlib, plus our sub-universe check.
+    metrics = {
+        "sharpe": shp,
+        "fitness": fit,
+        "turnover": to,
+        "self_correlation": self_correlation,
+        "concentration": conc,
+        "returns": ret,
+        "drawdown": dd,
+    }
+    passes, reasons = gates_evaluate(metrics, gates)
     if sub_cutoff_violations:
-        reasons.append(f"Sub-universe Sharpe failures: {', '.join(sub_cutoff_violations[:3])}")
-
-    passes = len(reasons) == 0
+        passes = False
+        # Prepend the sub-universe failures so they're visible alongside
+        # the other gate reasons.
+        reasons = [f"Sub-universe Sharpe failures: {', '.join(sub_cutoff_violations[:3])}"] + reasons
 
     return {
         "alpha": alpha_col,
@@ -211,6 +225,7 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
         "turnover": round(to, 4),
         "drawdown": round(dd, 4),
         "concentration": round(conc, 4),
+        "self_correlation": round(self_correlation, 4),
         "min_sub_sharpe": round(sub_min, 4),
         "worst_sub_universe": worst_sub,
         "passes": passes,
@@ -220,12 +235,19 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Local BRAIN alpha validator")
-    p.add_argument("--alphas", required=True, help="CSV with one row per alpha (col 'name')")
+    p.add_argument("--alphas",
+                   help="Optional: CSV with one row per alpha (col 'name'). "
+                        "The alpha signals themselves are read from the returns panel.")
     p.add_argument("--returns-panel", required=True, help="Parquet or CSV of returns panel")
     p.add_argument("--sub-universe-column", default="subindustry")
     p.add_argument("--output", default="local_validation.csv")
     p.add_argument("--alpha-prefix", default="alpha_",
                    help="Column prefix in the returns panel that holds alpha signals")
+    p.add_argument("--expected-self-correlation", type=float, default=0.0,
+                   help="Max self-correlation against your prior submitted alphas "
+                        "(the validator cannot compute this from the panel alone; "
+                        "set this to the value the BRAIN self-corr endpoint returned "
+                        "for the most-correlated prior submission).")
     args = p.parse_args(argv)
 
     # Load returns panel.
@@ -243,17 +265,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No alpha columns found with prefix '{args.alpha_prefix}'.", file=sys.stderr)
         return 1
 
-    gates = Gates()
+    gates = DEFAULT_GATES
     results = []
     for col in alpha_cols:
-        result = evaluate_alpha(panel, col, args.sub_universe_column, gates)
+        result = evaluate_alpha(panel, col, args.sub_universe_column, gates,
+                                self_correlation=args.expected_self_correlation)
         results.append(result)
 
     # Write report.
     out_path = Path(args.output)
     fieldnames = ["alpha", "sharpe", "fitness", "returns_annualized", "turnover",
-                  "drawdown", "concentration", "min_sub_sharpe", "worst_sub_universe",
-                  "passes", "reasons"]
+                  "drawdown", "concentration", "self_correlation", "min_sub_sharpe",
+                  "worst_sub_universe", "passes", "reasons"]
     with open(out_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()

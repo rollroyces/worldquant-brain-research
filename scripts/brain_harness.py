@@ -53,9 +53,8 @@ import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
 
 try:
     import requests
@@ -81,7 +80,6 @@ BRAIN_ENDPOINTS = {
     "simulations": "/api/v1/simulations",
     "alpha": "/api/v1/alpha",
     "alpha_submit": "/api/v1/alpha/submit",
-    "self_corr": "/api/v1/alpha/self-correlation",
 }
 
 
@@ -140,7 +138,11 @@ class BrainClient:
         resp = self.session.post(url, json=alpha, cookies=self.cookies,
                                  headers=self._headers(), timeout=60)
         resp.raise_for_status()
-        return resp.json().get("id") or resp.json().get("simulation_id")
+        body = resp.json()
+        sim_id = body.get("id") or body.get("simulation_id")
+        if not sim_id:
+            raise RuntimeError(f"BRAIN /simulate returned no id; payload was {body!r}")
+        return sim_id
 
     def fetch_simulation(self, sim_id: str) -> dict:
         """GET a simulation result."""
@@ -160,15 +162,6 @@ class BrainClient:
                                  cookies=self.cookies, headers=self._headers(), timeout=60)
         resp.raise_for_status()
         return resp.json()
-
-    def get_self_correlation(self, alpha_id: str) -> float:
-        """Get max self-correlation against your prior submitted alphas."""
-        if self.mock:
-            return random.uniform(0.0, 0.85)
-        url = self.base_url + BRAIN_ENDPOINTS["self_corr"] + "/" + alpha_id
-        resp = self.session.get(url, cookies=self.cookies, headers=self._headers(), timeout=60)
-        resp.raise_for_status()
-        return float(resp.json().get("max_correlation", 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +240,10 @@ def cmd_simulate(args, client: BrainClient, gates: Gates) -> int:
     metrics = result["metrics"]
     passes, reasons = gates.evaluate(metrics)
     print(json.dumps({"sim_id": sim_id, "metrics": metrics, "passes": passes, "reasons": reasons}, indent=2))
-    return 0 if passes or args.no_exit_on_fail else 0
+    # --no-exit-on-fail: print JSON but always return success (useful for piping).
+    if passes or args.no_exit_on_fail:
+        return 0
+    return 1
 
 
 def cmd_batch(args, client: BrainClient, gates: Gates) -> int:
@@ -296,16 +292,24 @@ def _run_one(client: BrainClient, gates: Gates, row: dict) -> dict:
 
 def cmd_submit(args, client: BrainClient, gates: Gates) -> int:
     client.authenticate()
-    files = list(Path(".").glob(args.from_results))
+    # Sort to get deterministic order — matters for the daily cap and reproducibility.
+    files = sorted(Path(".").glob(args.from_results))
     if not files:
         print(f"No result files matched: {args.from_results}", file=sys.stderr)
         return 1
     submitted = 0
     for f in files:
-        result = json.loads(f.read_text())
+        try:
+            result = json.loads(f.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"Skipping {f.name}: {exc}", file=sys.stderr)
+            continue
         if not result.get("passes"):
             continue
-        sim_id = result["sim_id"]
+        sim_id = result.get("sim_id")
+        if not sim_id:
+            print(f"Skipping {f.name}: no sim_id field.", file=sys.stderr)
+            continue
         resp = client.submit_alpha(sim_id)
         print(f"Submitted {sim_id}: {resp}")
         submitted += 1
