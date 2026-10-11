@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`docs/CLAIMS.md`** — placeholder for template claim verification.
 - **Issue / PR templates** under `.github/`.
 - **`CONTRIBUTING.md`** — onboarding doc.
+- **`scripts/cross_validate.py`** — IS / OS split with the OS/IS Sharpe
+  ratio as the canonical overfitting diagnostic.
+- **`scripts/parameter_sweep.py`** — robustness sweep across
+  (decay × truncation × neutralization) with a fragility verdict.
+- **`tests/test_cross_validation.py`** — 21 cases pinning both
+  scripts.
 
 ### Changed
 - `requirements.txt` — added `mypy>=1.7`.

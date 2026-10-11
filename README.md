@@ -18,9 +18,16 @@ worldquant-brain-research/
 ├── scripts/
 │   ├── brain_harness.py            # batch simulator via BRAIN API
 │   ├── subuniverse_validator.py    # local pre-screening of sub-universe Sharpe
-│   └── iqc_scheduler.py            # region-rotation submission planner
+│   ├── iqc_scheduler.py            # region-rotation submission planner
+│   ├── cross_validate.py           # IS / OS split for overfitting detection
+│   └── parameter_sweep.py          # robustness sweep across decay/truncation/neutralization
 ├── tests/
-│   └── test_gates.py               # pytest suite for the gate logic
+│   ├── test_gates.py               # canonical gate logic
+│   ├── test_validator_metrics.py   # validator metric helpers + self-corr gate
+│   ├── test_scheduler.py           # rotation invariants
+│   ├── test_security.py            # credential hygiene
+│   ├── test_csv_grid.py            # CSV-loading regression
+│   └── test_cross_validation.py    # cross-validate + parameter-sweep helpers
 └── examples/
     └── alpha_grid_example.csv      # example skeleton × data × parameter grid
 ```
@@ -73,6 +80,47 @@ python scripts/subuniverse_validator.py \
     --returns-panel data/returns_panel.parquet \
     --sub-universe-column subindustry \
     --output results/local_validation.csv
+```
+
+### Cross-validate before submitting (IS / OS split)
+
+The single biggest reason alphas fail the BRAIN test period is
+overfitting to the in-sample window. `cross_validate.py` splits your
+returns panel at a date (or fraction) and reports Sharpe on each half
+plus the OS/IS ratio — the canonical overfitting diagnostic.
+
+```bash
+python scripts/cross_validate.py \
+    --returns-panel data/returns_panel.parquet \
+    --alpha-column alpha_test \
+    --split-date 2025-04-01 \
+    --output results/cross_validation.csv
+```
+
+Interpretation:
+- **OS/IS ≥ 0.5** → probably real, worth a real submission
+- **OS/IS 0.3–0.5** → marginal, watch closely
+- **OS/IS < 0.3** → likely overfit, signal collapsed OOS
+- **OS/IS < 0** → flipped signs, alpha is not real
+
+### Robustness sweep across parameters
+
+`parameter_sweep.py` runs an alpha across a grid of (decay, truncation,
+neutralization) and reports a "fragility" verdict — pass rate, Sharpe
+range, median, std. An alpha that only works at one exact parameter
+combination is fragile; one that holds across most of the grid is
+robust.
+
+```bash
+python scripts/parameter_sweep.py \
+    --expression "rank(ts_mean(close, 30) - close)" \
+    --region USA --universe TOP3000 --delay 1 \
+    --sweep-decay 2,4,6,8 \
+    --sweep-truncation 0.05,0.08,0.10 \
+    --sweep-neutralization Market,Subindustry \
+    --mock \
+    --output results/sweep.csv
+```
 ```
 
 ### Plan an IQC submission schedule
