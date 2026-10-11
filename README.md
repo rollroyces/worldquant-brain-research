@@ -116,6 +116,14 @@ python3 -m pytest tests/ -v
 
 The test suite pins down the canonical gate thresholds and Fitness formula
 in `brainlib/gates.py` so a typo in the rules can't silently change what
-counts as a passing alpha. 27 tests cover the Fitness formula, the sub-universe
-Sharpe cutoff, every individual gate failure, multi-failure reporting, and
-per-region / per-delay `GateConfig` overrides.
+counts as a passing alpha. 66 tests cover the Fitness formula, the
+sub-universe Sharpe cutoff, every individual gate failure, multi-failure
+reporting, per-region / per-delay `GateConfig` overrides, validator
+metric helpers, IQC scheduler rotation invariants, and credential-leak
+regressions in the harness.
+
+## Continuous Integration
+
+`.github/workflows/test.yml` runs `pytest tests/ -v` on every push and
+pull request against `main`, across Python 3.10 / 3.11 / 3.12. Push a
+branch and check the Actions tab for green/red.
