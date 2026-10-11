@@ -9,12 +9,18 @@ the [WorldQuant BRAIN](https://platform.worldquantbrain.com) test period gates.
 worldquant-brain-research/
 ├── README.md                       # this file
 ├── .gitignore                      # ignores secrets, output artifacts, etc.
+├── requirements.txt                # pip install -r requirements.txt
+├── brainlib/                       # shared library code
+│   ├── __init__.py
+│   └── gates.py                    # canonical gate thresholds + evaluator
 ├── docs/
 │   └── ALPHA_TEMPLATES.md          # 20 alpha templates + parameter sweeps
 ├── scripts/
 │   ├── brain_harness.py            # batch simulator via BRAIN API
 │   ├── subuniverse_validator.py    # local pre-screening of sub-universe Sharpe
 │   └── iqc_scheduler.py            # region-rotation submission planner
+├── tests/
+│   └── test_gates.py               # pytest suite for the gate logic
 └── examples/
     └── alpha_grid_example.csv      # example skeleton × data × parameter grid
 ```
@@ -98,3 +104,16 @@ python scripts/iqc_scheduler.py \
 - 90%+ of attempts fail. Iterate hundreds of skeleton × data × parameter combinations.
 - The harness scaffolds the BRAIN API but exact endpoints may have shifted; verify
   against your account's API documentation before relying on it at scale.
+
+## Install dependencies and run the test suite
+
+```bash
+pip install -r requirements.txt
+python3 -m pytest tests/ -v
+```
+
+The test suite pins down the canonical gate thresholds and Fitness formula
+in `brainlib/gates.py` so a typo in the rules can't silently change what
+counts as a passing alpha. 27 tests cover the Fitness formula, the sub-universe
+Sharpe cutoff, every individual gate failure, multi-failure reporting, and
+per-region / per-delay `GateConfig` overrides.

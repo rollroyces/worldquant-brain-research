@@ -63,6 +63,10 @@ except ImportError:
     print("requests not installed. Run: pip install requests", file=sys.stderr)
     sys.exit(1)
 
+# Make brainlib importable when running this script directly.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from brainlib.gates import DEFAULT_GATES, evaluate as _gates_evaluate  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -82,44 +86,22 @@ BRAIN_ENDPOINTS = {
 
 
 # ---------------------------------------------------------------------------
-# Gates (US, Delay-1 baseline; vary slightly by region/delay)
+# Gates — re-export the canonical evaluator from brainlib.gates so callers
+# using `from brain_harness import Gates` still get a compatible shim.
 # ---------------------------------------------------------------------------
 
 @dataclass
 class Gates:
-    """Passing thresholds for an alpha submission."""
-    min_sharpe: float = 1.25
-    min_fitness: float = 1.0
-    turnover_min: float = 0.01
-    turnover_max: float = 0.70
-    max_self_corr: float = 0.70
-    max_concentration: float = 0.10
-    sub_universe_scale: float = 0.75     # sub_sharpe >= scale * sqrt(sub/full) * alpha_sharpe
-    ideal_max_drawdown: float = 0.10
+    """Backwards-compat shim — delegates to brainlib.gates.
+
+    Prefer importing Gates / DEFAULT_GATES directly from brainlib.gates.
+    This shim exists so callers using `from brain_harness import Gates` keep
+    working, and so the harness exposes a single .evaluate() entry point.
+    """
+    config: "DEFAULT_GATES.__class__" = DEFAULT_GATES
 
     def evaluate(self, metrics: dict) -> tuple[bool, list[str]]:
-        """Return (passes?, list_of_failure_reasons)."""
-        reasons = []
-        sharpe = metrics.get("sharpe", 0.0)
-        fitness = metrics.get("fitness", 0.0)
-        turnover = metrics.get("turnover", 0.0)
-        self_corr = metrics.get("self_correlation", 0.0)
-        concentration = metrics.get("concentration", 0.0)
-
-        if sharpe < self.min_sharpe:
-            reasons.append(f"Sharpe {sharpe:.3f} < {self.min_sharpe}")
-        if fitness < self.min_fitness:
-            reasons.append(f"Fitness {fitness:.3f} < {self.min_fitness}")
-        if not (self.turnover_min <= turnover <= self.turnover_max):
-            reasons.append(f"Turnover {turnover:.3f} outside [{self.turnover_min}, {self.turnover_max}]")
-        if self_corr > self.max_self_corr:
-            # If Sharpe is high enough, self-corr can be overridden.
-            override = 1.25 * 1.10  # 10% over the Sharpe threshold
-            if sharpe < override:
-                reasons.append(f"Self-Corr {self_corr:.3f} > {self.max_self_corr} and Sharpe {sharpe:.3f} < override {override:.3f}")
-        if concentration > self.max_concentration:
-            reasons.append(f"Concentration {concentration:.3f} > {self.max_concentration}")
-        return (len(reasons) == 0), reasons
+        return _gates_evaluate(metrics, self.config)
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +317,10 @@ def cmd_submit(args, client: BrainClient, gates: Gates) -> int:
 
 
 def cmd_gates(args, client: BrainClient, gates: Gates) -> int:
-    print(json.dumps(asdict(gates), indent=2))
+    # Delegate to the brainlib serializer so the printed thresholds always
+    # match the canonical rules.
+    from brainlib.gates import as_dict as gates_as_dict
+    print(json.dumps(gates_as_dict(gates.config), indent=2))
     return 0
 
 
