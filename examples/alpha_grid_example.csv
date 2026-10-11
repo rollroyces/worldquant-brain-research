@@ -1,0 +1,17 @@
+expression,region,universe,delay,neutralization,decay,truncation,pasteurization,nan_handling
+rank(ts_mean(close, 30) - close),USA,TOP3000,1,Subindustry,4,0.08,False,Off
+event=volume>adv20;alpha=-ts_delta(close,5);trade_when(event,alpha,-1),USA,TOP3000,1,Subindustry,2,0.01,False,Off
+(vwap-close)/vwap,USA,TOP3000,1,Subindustry,15,0.08,True,Off
+ts_rank(ts_mean(returns,20)/ts_std_dev(returns,20),60),USA,TOP3000,1,Subindustry,6,0.08,True,Verify
+rank(-ts_delta(close,1))*sign(ts_skewness(returns,60)),USA,TOP3000,1,Subindustry,3,0.08,False,Off
+ts_rank(cashflow_op/cap,60);group_rank(alpha,subindustry),USA,TOP3000,1,Subindustry,4,0.08,True,Verify
+ts_rank(net_income/cap,252),USA,TOP3000,1,Subindustry,8,0.08,True,Verify
+ts_rank(revenue/assets,250),USA,TOP3000,1,Subindustry,6,0.08,True,Verify
+rank(liabilities/assets),USA,TOP3000,1,Sector,8,0.08,True,Verify
+rank(book_value/cap),USA,TOP3000,1,Subindustry,10,0.08,True,Verify
+ts_rank(anl14_actvalue_eps_fp0,60),USA,TOP1000,1,Subindustry,4,0.08,True,Verify
+rank(anl13_eps_est_std/anl13_eps_est_mean),USA,TOP1000,1,Subindustry,6,0.08,True,Verify
+rank(target_price/close-1),USA,TOP1000,1,Subindustry,8,0.08,True,Verify
+ts_rank(news_polarity,5),USA,TOP3000,1,Subindustry,3,0.08,True,Verify
+rank(-short_interest_pct_float),USA,TOP3000,1,Subindustry,8,0.08,True,Verify
+rank(implied_vol-realized_vol),USA,TOP1000,1,Subindustry,6,0.08,True,Verify
