@@ -5,14 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:        # allow manual trigger from the Actions tab
 
 jobs:
-  test:
+  pytest:
     name: pytest
     runs-on: ubuntu-latest
     strategy:
-      # Test against the supported Python versions. Add or drop entries as
-      # the project evolves; the floor is whatever's in requirements.txt.
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
@@ -41,3 +40,66 @@ jobs:
         run: |
           python -m pytest tests/ --junitxml=test-results-${{ matrix.python-version }}.xml
         continue-on-error: true
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: test-results-${{ matrix.python-version }}.xml
+          retention-days: 30
+
+  demo:
+    name: Harness demo (mock mode)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Print canonical gate thresholds
+        run: |
+          python scripts/brain_harness.py --mock gates
+
+      - name: Run a batch simulation against the example grid
+        run: |
+          mkdir -p demo-results
+          python scripts/brain_harness.py --mock batch \
+              --grid examples/alpha_grid_example.csv \
+              --output demo-results/ \
+              --parallel 4
+
+      - name: Filter qualifying results and submit (mock)
+        run: |
+          python scripts/brain_harness.py --mock submit \
+              --from-results "demo-results/sim_*.json" \
+              --max-per-day 4
+
+      - name: Generate a 14-day IQC plan
+        run: |
+          python scripts/iqc_scheduler.py \
+              --start 2026-11-02 --days 14 --skip-weekends --per-day 2 \
+              --output demo-results/iqc_plan.csv
+
+      - name: Show plan summary
+        run: |
+          head -10 demo-results/iqc_plan.csv
+
+      - name: Upload demo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-demo-results
+          path: demo-results/
+          retention-days: 30
