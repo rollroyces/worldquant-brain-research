@@ -65,7 +65,7 @@ except ImportError:
 
 # Make brainlib importable when running this script directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from brainlib.gates import DEFAULT_GATES, evaluate as _gates_evaluate  # noqa: E402
+from brainlib.gates import DEFAULT_GATES, GateConfig, evaluate as _gates_evaluate  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ class Gates:
     This shim exists so callers using `from brain_harness import Gates` keep
     working, and so the harness exposes a single .evaluate() entry point.
     """
-    config: "DEFAULT_GATES.__class__" = DEFAULT_GATES
+    config: GateConfig = DEFAULT_GATES
 
     def evaluate(self, metrics: dict) -> tuple[bool, list[str]]:
         return _gates_evaluate(metrics, self.config)
@@ -140,9 +140,11 @@ class BrainClient:
         url = self.base_url + BRAIN_ENDPOINTS["login"]
         resp = self.session.post(url, json={"email": self.email, "password": self.password}, timeout=30)
         resp.raise_for_status()
-        self.cookies = dict(self.session.cookies)
+        # RequestsCookieJar has a __getitem__ overload that returns
+        # str | None; coerce to str for our stricter annotation.
+        self.cookies = {str(k): str(v) for k, v in self.session.cookies.items()}
 
-    def _headers(self) -> dict:
+    def _headers(self) -> dict[str, str]:
         return {"Accept": "application/json", "Content-Type": "application/json"}
 
     def submit_simulation(self, alpha: dict) -> str:
@@ -153,7 +155,7 @@ class BrainClient:
         resp = self.session.post(url, json=alpha, cookies=self.cookies,
                                  headers=self._headers(), timeout=60)
         resp.raise_for_status()
-        body = resp.json()
+        body: dict[str, Any] = resp.json()
         sim_id = body.get("id") or body.get("simulation_id")
         if not sim_id:
             # Don't dump the response body — it could contain echoed
@@ -162,18 +164,19 @@ class BrainClient:
                 f"BRAIN /simulate returned no id; status={resp.status_code}, "
                 f"keys={sorted(body.keys()) if isinstance(body, dict) else type(body).__name__}"
             )
-        return sim_id
+        return str(sim_id)
 
-    def fetch_simulation(self, sim_id: str) -> dict:
+    def fetch_simulation(self, sim_id: str) -> dict[str, Any]:
         """GET a simulation result."""
         if self.mock:
             return _mock_simulation_result(sim_id, alpha=None)
         url = self.base_url + BRAIN_ENDPOINTS["simulations"] + "/" + sim_id
         resp = self.session.get(url, cookies=self.cookies, headers=self._headers(), timeout=60)
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
-    def submit_alpha(self, sim_id: str) -> dict:
+    def submit_alpha(self, sim_id: str) -> dict[str, Any]:
         """Submit a qualifying alpha from a completed simulation."""
         if self.mock:
             return {"status": "mock-submitted", "sim_id": sim_id}
@@ -181,7 +184,8 @@ class BrainClient:
         resp = self.session.post(url, json={"simulation_id": sim_id},
                                  cookies=self.cookies, headers=self._headers(), timeout=60)
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -412,7 +416,13 @@ def main(argv: list[str] | None = None) -> int:
     password = os.environ.get("BRAIN_PASSWORD", "")
     client = BrainClient(email=args.email, password=password, mock=args.mock)
     gates = Gates()
-    return args.func(args, client, gates)
+    func = args.func
+    if func is None:
+        # argparse with required=True on the subparsers means func is
+        # always set when parse_args succeeds, but mypy can't see that.
+        return 2
+    result = func(args, client, gates)
+    return int(result)
 
 
 if __name__ == "__main__":

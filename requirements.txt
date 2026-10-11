@@ -4,3 +4,4 @@ numpy>=1.23
 
 # Dev / test
 pytest>=7.0
+mypy>=1.7

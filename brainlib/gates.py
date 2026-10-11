@@ -48,7 +48,9 @@ def fitness(sharpe: float, returns: float, turnover: float,
     """
     if turnover <= 0:
         return 0.0
-    return sharpe * (abs(returns) / max(turnover, floor)) ** 0.5
+    # Cast to float — mypy would otherwise widen through abs()/max() and
+    # conclude the expression is `Any`, which trips warn_return_any.
+    return float(sharpe * (abs(returns) / max(turnover, floor)) ** 0.5)
 
 
 def evaluate(metrics: dict[str, float], gates: GateConfig = DEFAULT_GATES) -> tuple[bool, list[str]]:
@@ -103,10 +105,13 @@ def sub_universe_cutoff(alpha_sharpe: float, sub_size: int, full_size: int,
     """
     if full_size <= 0 or sub_size <= 0:
         return float("inf")
-    return scale * (sub_size / full_size) ** 0.5 * alpha_sharpe
+    # Cast to float — without it mypy widens through ** 0.5 and trips
+    # warn_return_any on a function declared to return float.
+    return float(scale * (sub_size / full_size) ** 0.5 * alpha_sharpe)
 
 
 def as_dict(gates: GateConfig = DEFAULT_GATES) -> dict[str, float]:
     """Return gates as a plain dict (for printing/JSON). All GateConfig
     fields are floats so the return type is precisely `dict[str, float]`."""
-    return asdict(gates)
+    raw = asdict(gates)
+    return {k: float(v) for k, v in raw.items()}
