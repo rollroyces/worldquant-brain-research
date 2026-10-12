@@ -1,0 +1,25 @@
+# Project-wide tooling config for worldquant-brain-research.
+#
+# Only the [tool.ruff] block lives here for now; everything else (mypy,
+# pytest, package metadata) stays in mypy.ini / pytest.ini / setup.py
+# wherever it already does.
+
+[tool.ruff]
+# Match the formatter's wrap column.
+line-length = 100
+# CI matrix runs 3.10/3.11/3.12; target the lowest so all checks are uniform.
+target-version = "py310"
+# Don't look at generated / vendored trees.
+extend-exclude = ["results/", "docs/"]
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, isort, bugbear, pyupgrade. Keep the set
+# standard so the surface area of "what ruff complains about" stays small
+# and reviewable.
+select = ["E", "F", "I", "B", "UP"]
+# Line-length is enforced by the formatter (ruff-format), not the linter.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# Match black's grouping so ruff-format + isort don't fight.
+known-first-party = ["brainlib"]

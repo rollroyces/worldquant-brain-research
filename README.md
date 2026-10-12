@@ -159,6 +159,9 @@ python scripts/iqc_scheduler.py \
 
 ```bash
 pip install -r requirements.txt
+# Optional: install the pre-commit hooks so lint/format/type/smoke
+# run automatically on every commit. See .pre-commit-config.yaml.
+pip install pre-commit && pre-commit install
 python3 -m pytest tests/ -v
 python3 -m mypy brainlib/ scripts/ tests/
 ```

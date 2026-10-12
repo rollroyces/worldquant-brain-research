@@ -1,0 +1,62 @@
+# Pre-commit hooks for worldquant-brain-research.
+#
+# Hook order matters: format first (ruff-format), then lint (ruff --fix), then
+# type check (mypy), then hygiene hooks, then the local pytest smoke.
+#
+# Reinstall after editing this file:
+#   pre-commit install
+# Run on demand (without committing):
+#   pre-commit run --all-files
+#
+# Install once per clone:
+#   pip install pre-commit
+#   pre-commit install
+
+repos:
+  # ----- ruff: lint + formatter (replaces flake8, isort, black) -----
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        # Apply safe auto-fixes so simple issues don't gate commits.
+        args: [--fix]
+        files: ^(brainlib|scripts|tests)/
+
+      - id: ruff-format
+        name: ruff-format
+        files: ^(brainlib|scripts|tests)/
+
+  # ----- mypy: static type check, scope to library + scripts -----
+  # Tests/ is intentionally excluded here (see mypy.ini — they have looser
+  # settings and CI's mypy job still covers them separately).
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        name: mypy (brainlib + scripts)
+        files: ^(brainlib|scripts)/
+        args: [--config-file=mypy.ini]
+        # pandas-stubs keeps mypy from complaining about DataFrame access.
+        additional_dependencies: [pandas-stubs]
+
+  # ----- standard pre-commit hygiene hooks -----
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+
+  # ----- local pytest smoke: keep the cheap gates test green per-commit -----
+  # `tests/test_gates.py` is the fastest file (canonical gate logic, no fixtures)
+  # so it's the right "did I break anything obvious?" gate before pushing.
+  - repo: local
+    hooks:
+      - id: pytest-smoke
+        name: pytest smoke (tests/test_gates.py)
+        entry: python -m pytest tests/test_gates.py -x -q --no-header
+        language: system
+        pass_filenames: false
+        always_run: true

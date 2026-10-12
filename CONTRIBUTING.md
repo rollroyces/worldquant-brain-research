@@ -13,6 +13,28 @@ pip install -r requirements.txt
 
 The `requirements.txt` covers runtime + dev deps (pytest, mypy).
 
+### Pre-commit hooks
+
+Run `pip install pre-commit && pre-commit install` once after cloning.
+The hooks will run on every commit.
+
+The hook chain (see `.pre-commit-config.yaml`) runs in this order:
+
+1. **ruff-format** — formatter (replaces `black`).
+2. **ruff** — linter (replaces `flake8`, `isort` checks, plus bugbear/pyupgrade).
+3. **mypy** — static type check on `brainlib/` and `scripts/` only.
+   Tests are looser (see `mypy.ini`) and stay in CI's mypy job.
+4. **trailing-whitespace / end-of-file-fixer / check-yaml / check-toml** —
+   standard hygiene from `pre-commit-hooks`.
+5. **pytest smoke** — `tests/test_gates.py` only. If that file breaks, the
+   commit is blocked before it leaves your laptop.
+
+To run the full hook chain against the working tree without committing:
+
+```bash
+pre-commit run --all-files
+```
+
 ## Test workflow
 
 ```bash
