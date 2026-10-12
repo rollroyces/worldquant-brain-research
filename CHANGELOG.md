@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (decay × truncation × neutralization) with a fragility verdict.
 - **`tests/test_cross_validation.py`** — 21 cases pinning both
   scripts.
+- **`docs/CLAIMS.md`** — audit trail for the 80 numeric claims in
+  `docs/ALPHA_TEMPLATES.md`. All currently marked [community]; the
+  file explains how to mark a claim [verified] after running against
+  the real BRAIN API.
 
 ### Changed
 - `requirements.txt` — added `mypy>=1.7`.
