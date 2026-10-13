@@ -72,11 +72,19 @@ def _parse_csv_strs(s: str) -> list[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
 
 
-def sweep(expression: str, region: str, universe: str, delay: int,
-          decays: list[int], truncations: list[float],
-          neutralizations: list[str], mock: bool,
-          pasteurization: bool = False, nan_handling: str = "Off",
-          gates: Any = None) -> list[SweepResult]:
+def sweep(
+    expression: str,
+    region: str,
+    universe: str,
+    delay: int,
+    decays: list[int],
+    truncations: list[float],
+    neutralizations: list[str],
+    mock: bool,
+    pasteurization: bool = False,
+    nan_handling: str = "Off",
+    gates: Any = None,
+) -> list[SweepResult]:
     """Run the (decay × truncation × neutralization) sweep, return results.
 
     Uses scripts/brain_harness in mock mode (no real BRAIN calls) so
@@ -84,8 +92,10 @@ def sweep(expression: str, region: str, universe: str, delay: int,
     deterministic noise; the script is the parameter-sweep plumbing.
     """
     import brain_harness
+
     if gates is None:
         from brainlib.gates import DEFAULT_GATES
+
         gates = DEFAULT_GATES
 
     client = brain_harness.BrainClient(mock=mock)
@@ -94,9 +104,15 @@ def sweep(expression: str, region: str, universe: str, delay: int,
     results = []
     for decay, trunc, neut in itertools.product(decays, truncations, neutralizations):
         payload = brain_harness.alpha_payload(
-            expression=expression, region=region, universe=universe,
-            delay=delay, neutralization=neut, decay=decay, truncation=trunc,
-            pasteurization=pasteurization, nan_handling=nan_handling,
+            expression=expression,
+            region=region,
+            universe=universe,
+            delay=delay,
+            neutralization=neut,
+            decay=decay,
+            truncation=trunc,
+            pasteurization=pasteurization,
+            nan_handling=nan_handling,
         )
         sim_id = client.submit_simulation(payload)
         # Mock mode returns immediately; real mode would poll. In mock
@@ -104,17 +120,19 @@ def sweep(expression: str, region: str, universe: str, delay: int,
         result = client.fetch_simulation(sim_id)
         metrics = result["metrics"]
         passes, reasons = brain_harness._gates_evaluate(metrics, gates)
-        results.append(SweepResult(
-            decay=decay,
-            truncation=trunc,
-            neutralization=neut,
-            sharpe=round(metrics["sharpe"], 4),
-            fitness=round(metrics["fitness"], 4),
-            turnover=round(metrics["turnover"], 4),
-            concentration=round(metrics["concentration"], 4),
-            passes=passes,
-            reasons="; ".join(reasons),
-        ))
+        results.append(
+            SweepResult(
+                decay=decay,
+                truncation=trunc,
+                neutralization=neut,
+                sharpe=round(metrics["sharpe"], 4),
+                fitness=round(metrics["fitness"], 4),
+                turnover=round(metrics["turnover"], 4),
+                concentration=round(metrics["concentration"], 4),
+                passes=passes,
+                reasons="; ".join(reasons),
+            )
+        )
     return results
 
 
@@ -122,9 +140,15 @@ def fragility_summary(results: list[SweepResult]) -> dict[str, Any]:
     """Summarize how robust the alpha is across the parameter grid."""
     n = len(results)
     if n == 0:
-        return {"n_combos": 0, "pass_rate": 0.0, "median_sharpe": 0.0,
-                "min_sharpe": 0.0, "max_sharpe": 0.0, "fragile": True,
-                "sharpe_std": 0.0}
+        return {
+            "n_combos": 0,
+            "pass_rate": 0.0,
+            "median_sharpe": 0.0,
+            "min_sharpe": 0.0,
+            "max_sharpe": 0.0,
+            "fragile": True,
+            "sharpe_std": 0.0,
+        }
 
     sharpes = [r.sharpe for r in results]
     passes = sum(1 for r in results if r.passes)
@@ -159,8 +183,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--sweep-decay", default="2,4,6,8")
     p.add_argument("--sweep-truncation", default="0.05,0.08,0.10")
     p.add_argument("--sweep-neutralization", default="Market,Subindustry")
-    p.add_argument("--mock", action="store_true",
-                   help="Run in mock mode (deterministic noise metrics).")
+    p.add_argument(
+        "--mock", action="store_true", help="Run in mock mode (deterministic noise metrics)."
+    )
     p.add_argument("--output", default="sweep_results.csv")
     args = p.parse_args(argv)
 
@@ -169,8 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     neuts = _parse_csv_strs(args.sweep_neutralization)
     n_combos = len(decays) * len(truncs) * len(neuts)
 
-    print(f"Sweeping {n_combos} combinations across "
-          f"decay × truncation × neutralization...")
+    print(f"Sweeping {n_combos} combinations across " f"decay × truncation × neutralization...")
     print(f"  decay:           {decays}")
     print(f"  truncation:      {truncs}")
     print(f"  neutralization:  {neuts}")
@@ -191,11 +215,33 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.output)
     with open(out_path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["decay", "truncation", "neutralization", "sharpe", "fitness",
-                    "turnover", "concentration", "passes", "reasons"])
+        w.writerow(
+            [
+                "decay",
+                "truncation",
+                "neutralization",
+                "sharpe",
+                "fitness",
+                "turnover",
+                "concentration",
+                "passes",
+                "reasons",
+            ]
+        )
         for r in results:
-            w.writerow([r.decay, r.truncation, r.neutralization, r.sharpe, r.fitness,
-                        r.turnover, r.concentration, r.passes, r.reasons])
+            w.writerow(
+                [
+                    r.decay,
+                    r.truncation,
+                    r.neutralization,
+                    r.sharpe,
+                    r.fitness,
+                    r.turnover,
+                    r.concentration,
+                    r.passes,
+                    r.reasons,
+                ]
+            )
     print(f"Wrote: {out_path}")
 
     # Summary
@@ -206,8 +252,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Sharpe median:{summary['median_sharpe']:.3f}")
     print(f"  Sharpe std:   {summary['sharpe_std']:.3f}")
     if summary["fragile"]:
-        print("  → FRAGILE: pass rate below 75%. "
-              "Consider sweeping the alpha's expression or parameters more carefully.")
+        print(
+            "  → FRAGILE: pass rate below 75%. "
+            "Consider sweeping the alpha's expression or parameters more carefully."
+        )
     else:
         print("  → ROBUST: pass rate at or above 75%.")
 

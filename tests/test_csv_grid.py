@@ -57,9 +57,7 @@ class TestExampleCsvIsLoadable:
         rows = _load_csv_rows()
         for r in rows:
             expr = r["expression"]
-            assert expr.count("(") == expr.count(")"), (
-                f"Expression has unbalanced parens: {expr!r}"
-            )
+            assert expr.count("(") == expr.count(")"), f"Expression has unbalanced parens: {expr!r}"
 
 
 class TestLoadGridQuotingBehavior:
@@ -82,10 +80,7 @@ class TestLoadGridQuotingBehavior:
     def test_quoted_csv_with_internal_commas_parses(self, tmp_path):
         # The fix: quoted expressions parse correctly.
         good = tmp_path / "good.csv"
-        good.write_text(
-            "expression,region,delay\n"
-            '"ts_rank(net_income/cap,252)",USA,1\n'
-        )
+        good.write_text("expression,region,delay\n" '"ts_rank(net_income/cap,252)",USA,1\n')
         rows = _load_grid(str(good))
         assert rows[0]["expression"] == "ts_rank(net_income/cap,252)"
         assert rows[0]["region"] == "USA"

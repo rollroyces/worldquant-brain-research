@@ -89,6 +89,7 @@ BRAIN_ENDPOINTS = {
 # using `from brain_harness import Gates` still get a compatible shim.
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Gates:
     """Backwards-compat shim — delegates to brainlib.gates.
@@ -97,6 +98,7 @@ class Gates:
     This shim exists so callers using `from brain_harness import Gates` keep
     working, and so the harness exposes a single .evaluate() entry point.
     """
+
     config: GateConfig = DEFAULT_GATES
 
     def evaluate(self, metrics: dict) -> tuple[bool, list[str]]:
@@ -106,6 +108,7 @@ class Gates:
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class BrainClient:
@@ -118,6 +121,7 @@ class BrainClient:
       - if repr() or str() is called on this object, credentials show as
         '***' so accidental logging doesn't leak them.
     """
+
     base_url: str = BRAIN_API_BASE
     email: str = ""
     password: str = ""
@@ -138,7 +142,9 @@ class BrainClient:
         if not self.email or not self.password:
             raise RuntimeError("Set BRAIN_EMAIL and BRAIN_PASSWORD (or use --mock).")
         url = self.base_url + BRAIN_ENDPOINTS["login"]
-        resp = self.session.post(url, json={"email": self.email, "password": self.password}, timeout=30)
+        resp = self.session.post(
+            url, json={"email": self.email, "password": self.password}, timeout=30
+        )
         resp.raise_for_status()
         # RequestsCookieJar has a __getitem__ overload that returns
         # str | None; coerce to str for our stricter annotation.
@@ -152,8 +158,9 @@ class BrainClient:
         if self.mock:
             return "mock-sim-" + str(uuid.uuid4())[:8]
         url = self.base_url + BRAIN_ENDPOINTS["simulate"]
-        resp = self.session.post(url, json=alpha, cookies=self.cookies,
-                                 headers=self._headers(), timeout=60)
+        resp = self.session.post(
+            url, json=alpha, cookies=self.cookies, headers=self._headers(), timeout=60
+        )
         resp.raise_for_status()
         body: dict[str, Any] = resp.json()
         sim_id = body.get("id") or body.get("simulation_id")
@@ -181,8 +188,13 @@ class BrainClient:
         if self.mock:
             return {"status": "mock-submitted", "sim_id": sim_id}
         url = self.base_url + BRAIN_ENDPOINTS["alpha_submit"]
-        resp = self.session.post(url, json={"simulation_id": sim_id},
-                                 cookies=self.cookies, headers=self._headers(), timeout=60)
+        resp = self.session.post(
+            url,
+            json={"simulation_id": sim_id},
+            cookies=self.cookies,
+            headers=self._headers(),
+            timeout=60,
+        )
         resp.raise_for_status()
         result: dict[str, Any] = resp.json()
         return result
@@ -192,9 +204,18 @@ class BrainClient:
 # Alpha definition + mock results
 # ---------------------------------------------------------------------------
 
-def alpha_payload(expression: str, region: str, universe: str, delay: int,
-                  neutralization: str, decay: int, truncation: float,
-                  pasteurization: bool = False, nan_handling: str = "Off") -> dict:
+
+def alpha_payload(
+    expression: str,
+    region: str,
+    universe: str,
+    delay: int,
+    neutralization: str,
+    decay: int,
+    truncation: float,
+    pasteurization: bool = False,
+    nan_handling: str = "Off",
+) -> dict:
     """Build the JSON payload for a simulation."""
     return {
         "type": "REGULAR",
@@ -243,10 +264,19 @@ def _mock_simulation_result(sim_id: str, alpha: dict[str, Any] | None) -> dict[s
 # Subcommands
 # ---------------------------------------------------------------------------
 
+
 def cmd_simulate(args, client: BrainClient, gates: Gates) -> int:
-    payload = alpha_payload(args.expression, args.region, args.universe, args.delay,
-                            args.neutralization, args.decay, args.truncation,
-                            pasteurization=args.pasteurization, nan_handling=args.nan_handling)
+    payload = alpha_payload(
+        args.expression,
+        args.region,
+        args.universe,
+        args.delay,
+        args.neutralization,
+        args.decay,
+        args.truncation,
+        pasteurization=args.pasteurization,
+        nan_handling=args.nan_handling,
+    )
     client.authenticate()
     sim_id = client.submit_simulation(payload)
     print(f"Submitted simulation: {sim_id}")
@@ -258,12 +288,18 @@ def cmd_simulate(args, client: BrainClient, gates: Gates) -> int:
             break
         time.sleep(args.poll_interval)
     else:
-        print(f"Simulation {sim_id} did not complete within {args.max_polls} polls.", file=sys.stderr)
+        print(
+            f"Simulation {sim_id} did not complete within {args.max_polls} polls.", file=sys.stderr
+        )
         return 1
 
     metrics = result["metrics"]
     passes, reasons = gates.evaluate(metrics)
-    print(json.dumps({"sim_id": sim_id, "metrics": metrics, "passes": passes, "reasons": reasons}, indent=2))
+    print(
+        json.dumps(
+            {"sim_id": sim_id, "metrics": metrics, "passes": passes, "reasons": reasons}, indent=2
+        )
+    )
     # --no-exit-on-fail: print JSON but always return success (useful for piping).
     if passes or args.no_exit_on_fail:
         return 0
@@ -295,10 +331,13 @@ def cmd_batch(args, client: BrainClient, gates: Gates) -> int:
 
 def _run_one(client: BrainClient, gates: Gates, row: dict[str, str]) -> dict[str, Any]:
     payload = alpha_payload(
-        expression=row["expression"], region=row.get("region", "USA"),
-        universe=row.get("universe", "TOP3000"), delay=int(row.get("delay", 1)),
+        expression=row["expression"],
+        region=row.get("region", "USA"),
+        universe=row.get("universe", "TOP3000"),
+        delay=int(row.get("delay", 1)),
         neutralization=row.get("neutralization", "Subindustry"),
-        decay=int(row.get("decay", 4)), truncation=float(row.get("truncation", 0.08)),
+        decay=int(row.get("decay", 4)),
+        truncation=float(row.get("truncation", 0.08)),
         pasteurization=str(row.get("pasteurization", "Off")).lower() == "true",
         nan_handling=row.get("nan_handling", "Off"),
     )
@@ -310,8 +349,13 @@ def _run_one(client: BrainClient, gates: Gates, row: dict[str, str]) -> dict[str
         time.sleep(2)
     metrics = result.get("metrics", {})
     passes, reasons = gates.evaluate(metrics)
-    return {"sim_id": sim_id, "expression": row["expression"], "metrics": metrics,
-            "passes": passes, "reasons": reasons}
+    return {
+        "sim_id": sim_id,
+        "expression": row["expression"],
+        "metrics": metrics,
+        "passes": passes,
+        "reasons": reasons,
+    }
 
 
 def cmd_submit(args, client: BrainClient, gates: Gates) -> int:
@@ -351,6 +395,7 @@ def cmd_gates(args, client: BrainClient, gates: Gates) -> int:
     # Delegate to the brainlib serializer so the printed thresholds always
     # match the canonical rules.
     from brainlib.gates import as_dict as gates_as_dict
+
     print(json.dumps(gates_as_dict(gates.config), indent=2))
     return 0
 
@@ -365,15 +410,19 @@ def _load_grid(path: str) -> list[dict[str, str]]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="WorldQuant BRAIN harness")
     p.add_argument("--mock", action="store_true", help="Offline mode (no network calls)")
     # NOTE: credentials come from environment variables (BRAIN_EMAIL /
     # BRAIN_PASSWORD) or .env, NEVER from CLI args. Exposing them as CLI
     # flags would put them into shell history, process listings, and CI logs.
-    p.add_argument("--email", default=os.environ.get("BRAIN_EMAIL", ""),
-                   help="BRAIN account email (or set BRAIN_EMAIL env var; "
-                        "do not pass on the CLI in shared environments).")
+    p.add_argument(
+        "--email",
+        default=os.environ.get("BRAIN_EMAIL", ""),
+        help="BRAIN account email (or set BRAIN_EMAIL env var; "
+        "do not pass on the CLI in shared environments).",
+    )
 
     sub = p.add_subparsers(dest="cmd", required=True)
 

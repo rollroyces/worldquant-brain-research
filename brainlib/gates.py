@@ -26,8 +26,8 @@ class GateConfig:
     max_concentration: float = 0.10
     sub_universe_scale: float = 0.75
     ideal_max_drawdown: float = 0.10
-    turnover_floor: float = 0.125         # the floor in the Fitness formula
-    self_corr_sharpe_override: float = 1.375   # 1.25 * 1.10 = 10% over Sharpe threshold
+    turnover_floor: float = 0.125  # the floor in the Fitness formula
+    self_corr_sharpe_override: float = 1.375  # 1.25 * 1.10 = 10% over Sharpe threshold
 
 
 # Convenience aliases.
@@ -35,8 +35,9 @@ DEFAULT_GATES = GateConfig()
 US_DELAY1 = DEFAULT_GATES
 
 
-def fitness(sharpe: float, returns: float, turnover: float,
-            floor: float = DEFAULT_GATES.turnover_floor) -> float:
+def fitness(
+    sharpe: float, returns: float, turnover: float, floor: float = DEFAULT_GATES.turnover_floor
+) -> float:
     """The BRAIN Fitness formula:
         Fitness = Sharpe * sqrt(|returns| / max(turnover, floor))
 
@@ -53,7 +54,9 @@ def fitness(sharpe: float, returns: float, turnover: float,
     return float(sharpe * (abs(returns) / max(turnover, floor)) ** 0.5)
 
 
-def evaluate(metrics: dict[str, float], gates: GateConfig = DEFAULT_GATES) -> tuple[bool, list[str]]:
+def evaluate(
+    metrics: dict[str, float], gates: GateConfig = DEFAULT_GATES
+) -> tuple[bool, list[str]]:
     """Apply the gate thresholds to a metrics dict.
 
     Args:
@@ -89,15 +92,17 @@ def evaluate(metrics: dict[str, float], gates: GateConfig = DEFAULT_GATES) -> tu
             f"{sharpe:.3f} < override {gates.self_corr_sharpe_override:.3f}"
         )
     if concentration > gates.max_concentration:
-        reasons.append(
-            f"Concentration {concentration:.3f} > {gates.max_concentration}"
-        )
+        reasons.append(f"Concentration {concentration:.3f} > {gates.max_concentration}")
 
     return (len(reasons) == 0), reasons
 
 
-def sub_universe_cutoff(alpha_sharpe: float, sub_size: int, full_size: int,
-                        scale: float = DEFAULT_GATES.sub_universe_scale) -> float:
+def sub_universe_cutoff(
+    alpha_sharpe: float,
+    sub_size: int,
+    full_size: int,
+    scale: float = DEFAULT_GATES.sub_universe_scale,
+) -> float:
     """Minimum Sharpe the alpha must achieve within a sub-universe.
 
     Formula (from BRAIN docs):

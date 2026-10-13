@@ -29,6 +29,7 @@ from subuniverse_validator import (
 # Metric helpers
 # ---------------------------------------------------------------------------
 
+
 class TestAnnualizedReturn:
     def test_zero_returns(self):
         rets = np.zeros(252)
@@ -125,6 +126,7 @@ class TestConcentration:
 # evaluate_alpha end-to-end (small synthetic panel)
 # ---------------------------------------------------------------------------
 
+
 def _make_panel(n_days: int = 60, n_stocks: int = 20) -> pd.DataFrame:
     """Build a deterministic panel for validator tests."""
     np.random.seed(7)
@@ -136,13 +138,15 @@ def _make_panel(n_days: int = 60, n_stocks: int = 20) -> pd.DataFrame:
         for s_idx, s in enumerate(stock_ids):
             signal = math.sin(d_idx / 5 + s_idx)
             ret = 0.001 * signal + np.random.normal(0, 0.005)
-            rows.append({
-                "date": d,
-                "stock_id": s,
-                "subindustry": subindustries[s_idx],
-                "return": ret,
-                "alpha_test": signal,
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "stock_id": s,
+                    "subindustry": subindustries[s_idx],
+                    "return": ret,
+                    "alpha_test": signal,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -150,8 +154,10 @@ class TestEvaluateAlpha:
     def test_real_alpha_passes_locally(self):
         panel = _make_panel()
         from brainlib.gates import DEFAULT_GATES
-        result = evaluate_alpha(panel, "alpha_test", "subindustry", DEFAULT_GATES,
-                                self_correlation=0.0)
+
+        result = evaluate_alpha(
+            panel, "alpha_test", "subindustry", DEFAULT_GATES, self_correlation=0.0
+        )
         assert "alpha" in result
         assert "passes" in result
         assert "reasons" in result
@@ -163,23 +169,24 @@ class TestEvaluateAlpha:
     def test_self_correlation_failure_detected(self):
         panel = _make_panel()
         from brainlib.gates import DEFAULT_GATES
+
         # Pass a self-corr > 0.7 with low Sharpe → should fail self-corr gate.
-        result = evaluate_alpha(panel, "alpha_test", "subindustry", DEFAULT_GATES,
-                                self_correlation=0.85)
+        result = evaluate_alpha(
+            panel, "alpha_test", "subindustry", DEFAULT_GATES, self_correlation=0.85
+        )
         assert result["passes"] is False
         # The reasons string should mention Self-Corr (unless sub-universe
         # failures pre-empt it, which is acceptable behavior).
-        assert any("Self-Corr" in r or "Sub-universe" in r
-                   for r in [result["reasons"]])
+        assert any("Self-Corr" in r or "Sub-universe" in r for r in [result["reasons"]])
 
     def test_self_correlation_override_works(self):
         panel = _make_panel()
         from brainlib.gates import DEFAULT_GATES
+
         # Use a stronger alpha (square the signal) to get Sharpe > 1.375.
         panel2 = panel.copy()
         panel2["alpha_test"] = panel2["alpha_test"] ** 2 * np.sign(panel2["alpha_test"])
-        evaluate_alpha(panel2, "alpha_test", "subindustry", DEFAULT_GATES,
-                       self_correlation=0.85)
+        evaluate_alpha(panel2, "alpha_test", "subindustry", DEFAULT_GATES, self_correlation=0.85)
         # If Sharpe > 1.375 the override should engage — but the sub-universe
         # check might still fire. We at least assert that the self-corr gate
         # is NOT the reason for failure when Sharpe is high.

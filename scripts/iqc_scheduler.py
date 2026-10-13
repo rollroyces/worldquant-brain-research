@@ -43,6 +43,7 @@ from pathlib import Path
 # Template pool
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Template:
     family: str
@@ -59,70 +60,164 @@ class Template:
 # Default pool: 4 families × 5 regions = 14 base templates.
 DEFAULT_POOL = [
     # ----- PV family -----
-    Template("PV", "USA", "TOP3000", 1,
-             "rank(ts_mean(close, 30) - close)",
-             "PV1_baseline", 1.45, 0.20,
-             "Classic 30-day reversion; start here"),
-    Template("PV", "ASI", "TOP1000", 1,
-             "event=volume>adv20; alpha=-ts_delta(close,5); trade_when(event, alpha, -1)",
-             "PV2_volume_gated", 1.50, 0.15,
-             "Volume-gated reversion; works on liquid Asian markets"),
-    Template("PV", "CHN", "TOP3000", 0,
-             "(vwap-close)/vwap",
-             "PV3_vwap_reversion", 1.40, 0.10,
-             "Intraday VWAP reversion; CHN-specific"),
-
+    Template(
+        "PV",
+        "USA",
+        "TOP3000",
+        1,
+        "rank(ts_mean(close, 30) - close)",
+        "PV1_baseline",
+        1.45,
+        0.20,
+        "Classic 30-day reversion; start here",
+    ),
+    Template(
+        "PV",
+        "ASI",
+        "TOP1000",
+        1,
+        "event=volume>adv20; alpha=-ts_delta(close,5); trade_when(event, alpha, -1)",
+        "PV2_volume_gated",
+        1.50,
+        0.15,
+        "Volume-gated reversion; works on liquid Asian markets",
+    ),
+    Template(
+        "PV",
+        "CHN",
+        "TOP3000",
+        0,
+        "(vwap-close)/vwap",
+        "PV3_vwap_reversion",
+        1.40,
+        0.10,
+        "Intraday VWAP reversion; CHN-specific",
+    ),
     # ----- Fundamental family -----
-    Template("Fundamental", "USA", "TOP3000", 1,
-             "ts_rank(cashflow_op/cap, 60); group_rank(alpha, subindustry)",
-             "F1_op_yield", 1.40, 0.08,
-             "Operating yield; quality + value"),
-    Template("Fundamental", "EMEA", "TOP1000", 1,
-             "ts_rank(net_income/cap, 252)",
-             "F2_earnings_yield", 1.20, 0.06,
-             "Earnings yield; slower signal"),
-    Template("Fundamental", "GLB", "TOP2000", 1,
-             "ts_rank(revenue/assets, 250)",
-             "F3_asset_turnover", 1.25, 0.07,
-             "Asset turnover; efficiency factor"),
-
+    Template(
+        "Fundamental",
+        "USA",
+        "TOP3000",
+        1,
+        "ts_rank(cashflow_op/cap, 60); group_rank(alpha, subindustry)",
+        "F1_op_yield",
+        1.40,
+        0.08,
+        "Operating yield; quality + value",
+    ),
+    Template(
+        "Fundamental",
+        "EMEA",
+        "TOP1000",
+        1,
+        "ts_rank(net_income/cap, 252)",
+        "F2_earnings_yield",
+        1.20,
+        0.06,
+        "Earnings yield; slower signal",
+    ),
+    Template(
+        "Fundamental",
+        "GLB",
+        "TOP2000",
+        1,
+        "ts_rank(revenue/assets, 250)",
+        "F3_asset_turnover",
+        1.25,
+        0.07,
+        "Asset turnover; efficiency factor",
+    ),
     # ----- Analyst family -----
-    Template("Analyst", "USA", "TOP1000", 1,
-             "ts_rank(anl14_actvalue_eps_fp0, 60)",
-             "A1_earnings_revision", 1.55, 0.15,
-             "Earnings revision; high Sharpe"),
-    Template("Analyst", "ASI", "TOP500", 1,
-             "rank(anl13_eps_est_std/anl13_eps_est_mean)",
-             "A2_dispersion", 1.30, 0.12,
-             "Estimate dispersion; uncertainty filter"),
-    Template("Analyst", "GLB", "TOP1000", 1,
-             "rank(target_price/close - 1)",
-             "A3_target_upside", 1.30, 0.10,
-             "Target price upside"),
-
+    Template(
+        "Analyst",
+        "USA",
+        "TOP1000",
+        1,
+        "ts_rank(anl14_actvalue_eps_fp0, 60)",
+        "A1_earnings_revision",
+        1.55,
+        0.15,
+        "Earnings revision; high Sharpe",
+    ),
+    Template(
+        "Analyst",
+        "ASI",
+        "TOP500",
+        1,
+        "rank(anl13_eps_est_std/anl13_eps_est_mean)",
+        "A2_dispersion",
+        1.30,
+        0.12,
+        "Estimate dispersion; uncertainty filter",
+    ),
+    Template(
+        "Analyst",
+        "GLB",
+        "TOP1000",
+        1,
+        "rank(target_price/close - 1)",
+        "A3_target_upside",
+        1.30,
+        0.10,
+        "Target price upside",
+    ),
     # ----- Sentiment family -----
-    Template("Sentiment", "USA", "TOP3000", 1,
-             "ts_rank(news_polarity, 5)",
-             "S1_news_polarity", 1.40, 0.20,
-             "News polarity; high turnover"),
-    Template("Sentiment", "CHN", "TOP3000", 0,
-             "rank(-mdl175_volatility*log(volume))*(1+group_rank(mdl175_revenuettm, sector))",
-             "S4_chn_turnover_vol", 1.35, 0.15,
-             "CHN-specific turnover vol + revenue"),
-    Template("Sentiment", "EMEA", "TOP1000", 1,
-             "rank(implied_vol - realized_vol)",
-             "S3_ivol_rvol", 1.30, 0.12,
-             "IV minus RV; options data"),
-
+    Template(
+        "Sentiment",
+        "USA",
+        "TOP3000",
+        1,
+        "ts_rank(news_polarity, 5)",
+        "S1_news_polarity",
+        1.40,
+        0.20,
+        "News polarity; high turnover",
+    ),
+    Template(
+        "Sentiment",
+        "CHN",
+        "TOP3000",
+        0,
+        "rank(-mdl175_volatility*log(volume))*(1+group_rank(mdl175_revenuettm, sector))",
+        "S4_chn_turnover_vol",
+        1.35,
+        0.15,
+        "CHN-specific turnover vol + revenue",
+    ),
+    Template(
+        "Sentiment",
+        "EMEA",
+        "TOP1000",
+        1,
+        "rank(implied_vol - realized_vol)",
+        "S3_ivol_rvol",
+        1.30,
+        0.12,
+        "IV minus RV; options data",
+    ),
     # ----- Composite blends -----
-    Template("Composite", "USA", "TOP3000", 1,
-             "0.5*ts_rank(cashflow_op/cap, 60) + 0.5*ts_rank(book_value/cap, 252)",
-             "C1_quality_value", 1.50, 0.08,
-             "Quality + value blend; pushes Sharpe"),
-    Template("Composite", "GLB", "TOP2000", 1,
-             "ts_rank(anl14_actvalue_eps_fp0, 60)*ts_rank(cashflow_op/cap, 60)",
-             "C3_revisions_quality", 1.45, 0.12,
-             "Earnings revision × quality"),
+    Template(
+        "Composite",
+        "USA",
+        "TOP3000",
+        1,
+        "0.5*ts_rank(cashflow_op/cap, 60) + 0.5*ts_rank(book_value/cap, 252)",
+        "C1_quality_value",
+        1.50,
+        0.08,
+        "Quality + value blend; pushes Sharpe",
+    ),
+    Template(
+        "Composite",
+        "GLB",
+        "TOP2000",
+        1,
+        "ts_rank(anl14_actvalue_eps_fp0, 60)*ts_rank(cashflow_op/cap, 60)",
+        "C3_revisions_quality",
+        1.45,
+        0.12,
+        "Earnings revision × quality",
+    ),
 ]
 
 
@@ -130,8 +225,10 @@ DEFAULT_POOL = [
 # Scheduling
 # ---------------------------------------------------------------------------
 
-def _pick_template_for_family(candidates: list[Template],
-                              last_used_settings: str | None) -> Template:
+
+def _pick_template_for_family(
+    candidates: list[Template], last_used_settings: str | None
+) -> Template:
     """Pick the template in `candidates` whose settings_name is not the
     most-recently-used one. Falls back to the first candidate if the pool
     is too small to avoid the previous template."""
@@ -143,8 +240,7 @@ def _pick_template_for_family(candidates: list[Template],
     return candidates[0]
 
 
-def _pick_template_by_region(candidates: list[Template],
-                            last_used_region: str | None) -> Template:
+def _pick_template_by_region(candidates: list[Template], last_used_region: str | None) -> Template:
     """Pick the template whose region differs from the most-recently-used
     region. Falls back to the first candidate if necessary."""
     if not candidates:
@@ -155,9 +251,15 @@ def _pick_template_by_region(candidates: list[Template],
     return candidates[0]
 
 
-def build_schedule(start: dt.date, days: int, families: list[str],
-                   regions: list[str], per_day: int, skip_weekends: bool,
-                   pool: list[Template]) -> list[dict]:
+def build_schedule(
+    start: dt.date,
+    days: int,
+    families: list[str],
+    regions: list[str],
+    per_day: int,
+    skip_weekends: bool,
+    pool: list[Template],
+) -> list[dict]:
     """Build a daily submission plan that rotates families, regions, and
     individual templates.
 
@@ -186,7 +288,7 @@ def build_schedule(start: dt.date, days: int, families: list[str],
     last_template_by_family: dict[str, str | None] = {f: None for f in family_order}
     last_region_by_family: dict[str, str | None] = {f: None for f in family_order}
     # Across-day tracking.
-    last_used_day: dict[str, int] = {f: -10**9 for f in family_order}
+    last_used_day: dict[str, int] = {f: -(10**9) for f in family_order}
 
     schedule: list[dict] = []
     current_day = start
@@ -218,20 +320,22 @@ def build_schedule(start: dt.date, days: int, families: list[str],
             last_template_by_family[chosen_family] = t.settings_name
             last_region_by_family[chosen_family] = t.region
 
-            schedule.append({
-                "day_offset": day_idx,
-                "date": current_day.isoformat(),
-                "slot": slot + 1,
-                "family": t.family,
-                "region": t.region,
-                "universe": t.universe,
-                "delay": t.delay,
-                "expression": t.expression,
-                "settings": t.settings_name,
-                "expected_sharpe": t.expected_sharpe,
-                "expected_turnover": t.expected_turnover,
-                "notes": t.notes,
-            })
+            schedule.append(
+                {
+                    "day_offset": day_idx,
+                    "date": current_day.isoformat(),
+                    "slot": slot + 1,
+                    "family": t.family,
+                    "region": t.region,
+                    "universe": t.universe,
+                    "delay": t.delay,
+                    "expression": t.expression,
+                    "settings": t.settings_name,
+                    "expected_sharpe": t.expected_sharpe,
+                    "expected_turnover": t.expected_turnover,
+                    "notes": t.notes,
+                }
+            )
 
             # Rotate the chosen family to the back so we pick a different one next slot.
             family_order_today = [f for f in family_order_today if f != chosen_family]
@@ -280,8 +384,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--days", type=int, default=60)
     p.add_argument("--families", default="PV,Fundamental,Analyst,Sentiment,Composite")
     p.add_argument("--regions", default="USA,ASI,CHN,EMEA,GLB")
-    p.add_argument("--per-day", type=int, default=1,
-                   help="Submissions per day (default 1; max 4 to stay under daily cap)")
+    p.add_argument(
+        "--per-day",
+        type=int,
+        default=1,
+        help="Submissions per day (default 1; max 4 to stay under daily cap)",
+    )
     p.add_argument("--skip-weekends", action="store_true")
     p.add_argument("--output", default="iqc_schedule.csv")
     args = p.parse_args(argv)
@@ -291,8 +399,13 @@ def main(argv: list[str] | None = None) -> int:
         families = [s.strip() for s in args.families.split(",") if s.strip()]
         regions = [s.strip() for s in args.regions.split(",") if s.strip()]
         schedule = build_schedule(
-            start=start, days=args.days, families=families, regions=regions,
-            per_day=args.per_day, skip_weekends=args.skip_weekends, pool=DEFAULT_POOL,
+            start=start,
+            days=args.days,
+            families=families,
+            regions=regions,
+            per_day=args.per_day,
+            skip_weekends=args.skip_weekends,
+            pool=DEFAULT_POOL,
         )
     except ValueError as exc:
         print(f"Failed to build schedule: {exc}", file=sys.stderr)
@@ -304,8 +417,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nWrote: {out}")
     print("First 5 rows:")
     for row in schedule[:5]:
-        print(f"  {row['date']}  slot={row['slot']}  {row['family']:<12s}  "
-              f"{row['region']:<5s}  {row['settings']}")
+        print(
+            f"  {row['date']}  slot={row['slot']}  {row['family']:<12s}  "
+            f"{row['region']:<5s}  {row['settings']}"
+        )
     return 0
 
 

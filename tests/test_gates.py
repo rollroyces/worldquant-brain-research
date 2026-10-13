@@ -25,6 +25,7 @@ from brainlib.gates import (
 # Fitness formula
 # ---------------------------------------------------------------------------
 
+
 class TestFitnessFormula:
     """The fitness formula is the single most important rule in this repo."""
 
@@ -70,6 +71,7 @@ class TestFitnessFormula:
 # Sub-universe cutoff
 # ---------------------------------------------------------------------------
 
+
 class TestSubUniverseCutoff:
     """The sub-universe Sharpe cutoff is what most alphas miss silently."""
 
@@ -99,6 +101,7 @@ class TestSubUniverseCutoff:
 # ---------------------------------------------------------------------------
 # Gate evaluator
 # ---------------------------------------------------------------------------
+
 
 def passing_metrics(**overrides):
     """A metrics dict that should pass the default US/Delay-1 gates."""
@@ -182,13 +185,15 @@ class TestEvaluateFailures:
 
     def test_multiple_failures_all_reported(self):
         # A genuinely bad alpha should fail multiple gates at once.
-        passes, reasons = evaluate({
-            "sharpe": 0.80,
-            "fitness": 0.50,
-            "turnover": 0.005,
-            "self_correlation": 0.90,
-            "concentration": 0.20,
-        })
+        passes, reasons = evaluate(
+            {
+                "sharpe": 0.80,
+                "fitness": 0.50,
+                "turnover": 0.005,
+                "self_correlation": 0.90,
+                "concentration": 0.20,
+            }
+        )
         assert passes is False
         assert len(reasons) >= 4
 
@@ -196,6 +201,7 @@ class TestEvaluateFailures:
 # ---------------------------------------------------------------------------
 # Custom gate configs (region/delay variants)
 # ---------------------------------------------------------------------------
+
 
 class TestCustomGateConfigs:
     """Per-region / per-delay configs should override the defaults."""
@@ -221,6 +227,7 @@ class TestCustomGateConfigs:
 # ---------------------------------------------------------------------------
 # Round-trip helpers
 # ---------------------------------------------------------------------------
+
 
 class TestAsDict:
     def test_default_gates_serialize(self):

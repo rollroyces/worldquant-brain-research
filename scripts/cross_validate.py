@@ -63,6 +63,7 @@ from brainlib.gates import (
 @dataclass
 class PeriodMetrics:
     """Metrics for one period (IS or OS)."""
+
     period: str
     n_days: int
     sharpe: float
@@ -112,8 +113,9 @@ def _concentration(weights_today: np.ndarray) -> float:
     return float(np.abs(weights_today).max())
 
 
-def _evaluate_period(panel: pd.DataFrame, alpha_col: str,
-                     period_name: str, gates: Any) -> PeriodMetrics:
+def _evaluate_period(
+    panel: pd.DataFrame, alpha_col: str, period_name: str, gates: Any
+) -> PeriodMetrics:
     """Compute all metrics for one period (slice of the panel)."""
     panel = panel.sort_values(["date", "stock_id"])
     alpha_signal = panel[alpha_col].values
@@ -121,7 +123,8 @@ def _evaluate_period(panel: pd.DataFrame, alpha_col: str,
 
     daily_pnl_series = (
         pd.DataFrame({"date": panel["date"].values, "pnl": alpha_signal * returns})
-        .groupby("date")["pnl"].sum()
+        .groupby("date")["pnl"]
+        .sum()
     )
     daily_pnl = daily_pnl_series.values
 
@@ -161,9 +164,13 @@ def _evaluate_period(panel: pd.DataFrame, alpha_col: str,
     )
 
 
-def cross_validate(panel: pd.DataFrame, alpha_col: str,
-                   split_date: str | None, split_fraction: float,
-                   gates: Any = DEFAULT_GATES) -> tuple[PeriodMetrics, PeriodMetrics, float]:
+def cross_validate(
+    panel: pd.DataFrame,
+    alpha_col: str,
+    split_date: str | None,
+    split_fraction: float,
+    gates: Any = DEFAULT_GATES,
+) -> tuple[PeriodMetrics, PeriodMetrics, float]:
     """Split the panel at the given date (or fraction) and evaluate each half.
 
     Returns (is_metrics, os_metrics, os_sharpe_over_is_sharpe).
@@ -211,18 +218,26 @@ def cross_validate(panel: pd.DataFrame, alpha_col: str,
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="In-sample / out-of-sample validation")
     p.add_argument("--returns-panel", required=True)
-    p.add_argument("--alpha-column", required=True,
-                   help="Column in the panel that holds the alpha signal.")
-    p.add_argument("--split-date", default=None,
-                   help="ISO date (YYYY-MM-DD). Everything before is IS, "
-                        "after is OS. Mutually exclusive with --split-fraction.")
-    p.add_argument("--split-fraction", type=float, default=0.7,
-                   help="If --split-date is not given, split at this fraction of "
-                        "the date range. Default 0.7 (70%% IS, 30%% OS).")
+    p.add_argument(
+        "--alpha-column", required=True, help="Column in the panel that holds the alpha signal."
+    )
+    p.add_argument(
+        "--split-date",
+        default=None,
+        help="ISO date (YYYY-MM-DD). Everything before is IS, "
+        "after is OS. Mutually exclusive with --split-fraction.",
+    )
+    p.add_argument(
+        "--split-fraction",
+        type=float,
+        default=0.7,
+        help="If --split-date is not given, split at this fraction of "
+        "the date range. Default 0.7 (70%% IS, 30%% OS).",
+    )
     p.add_argument("--output", default="cross_validation.csv")
     args = p.parse_args(argv)
 
-    if (args.split_date is None and not 0 < args.split_fraction < 1):
+    if args.split_date is None and not 0 < args.split_fraction < 1:
         p.error("--split-fraction must be between 0 and 1 exclusive")
 
     path = Path(args.returns_panel)
@@ -233,7 +248,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         is_m, os_m, ratio = cross_validate(
-            panel, args.alpha_column,
+            panel,
+            args.alpha_column,
             split_date=args.split_date,
             split_fraction=args.split_fraction,
         )
@@ -249,8 +265,15 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(f"{'Metric':<22s}  {'IS':>12s}  {'OS':>12s}")
     print("-" * 50)
-    for attr in ("sharpe", "fitness", "returns_annualized", "turnover",
-                 "drawdown", "concentration", "passes_gates"):
+    for attr in (
+        "sharpe",
+        "fitness",
+        "returns_annualized",
+        "turnover",
+        "drawdown",
+        "concentration",
+        "passes_gates",
+    ):
         is_v = getattr(is_m, attr)
         os_v = getattr(os_m, attr)
         is_s = f"{is_v:.4f}" if isinstance(is_v, float) else str(is_v)
@@ -278,15 +301,39 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.output)
     with open(out_path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["period", "n_days", "sharpe", "fitness", "returns_annualized",
-                    "turnover", "drawdown", "concentration", "passes_gates",
-                    "gate_failures"])
+        w.writerow(
+            [
+                "period",
+                "n_days",
+                "sharpe",
+                "fitness",
+                "returns_annualized",
+                "turnover",
+                "drawdown",
+                "concentration",
+                "passes_gates",
+                "gate_failures",
+            ]
+        )
         for m in (is_m, os_m):
-            w.writerow([m.period, m.n_days, m.sharpe, m.fitness, m.returns_annualized,
-                        m.turnover, m.drawdown, m.concentration, m.passes_gates,
-                        m.gate_failures])
+            w.writerow(
+                [
+                    m.period,
+                    m.n_days,
+                    m.sharpe,
+                    m.fitness,
+                    m.returns_annualized,
+                    m.turnover,
+                    m.drawdown,
+                    m.concentration,
+                    m.passes_gates,
+                    m.gate_failures,
+                ]
+            )
         w.writerow([])
-        w.writerow(["os_sharpe_over_is_sharpe", round(ratio, 4) if not math.isnan(ratio) else "nan"])
+        w.writerow(
+            ["os_sharpe_over_is_sharpe", round(ratio, 4) if not math.isnan(ratio) else "nan"]
+        )
         w.writerow(["verdict", verdict])
     print(f"\nWrote: {out_path}")
 

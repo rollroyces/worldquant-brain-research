@@ -61,7 +61,6 @@ class TestSimulateErrorDoesNotLeakBody:
     """The simulate error message must not echo the response body."""
 
     def test_simulate_error_uses_keys_only(self, monkeypatch):
-
         # Build a client in non-mock mode and monkeypatch the session
         # to return a body without an id.
         client = BrainClient(email=EMAIL, password=SECRET, mock=False)
@@ -71,8 +70,7 @@ class TestSimulateErrorDoesNotLeakBody:
 
             def json(self):
                 # Body contains a fake "session_token" — must not appear in the error.
-                return {"error": "no_id", "session_token": SECRET,
-                        "user": {"email": EMAIL}}
+                return {"error": "no_id", "session_token": SECRET, "user": {"email": EMAIL}}
 
             def raise_for_status(self):
                 pass
@@ -129,23 +127,29 @@ class TestSubmitAlphaResponseSanitized:
 
         # Change cwd so the glob finds our file.
         import os
+
         old_cwd = os.getcwd()
         try:
             os.chdir(tmp_dir)
             # Build a fake args namespace.
             import argparse
+
             args = argparse.Namespace(
-                from_results="sim_*.json", max_per_day=4, mock=False,
+                from_results="sim_*.json",
+                max_per_day=4,
+                mock=False,
             )
             client = FakeBC()
             from brain_harness import Gates
+
             gates = Gates()
             rc = cmd_submit(args, client, gates)
             assert rc == 0
             captured = capsys.readouterr()
             assert SECRET not in captured.out, f"Password leaked in stdout: {captured.out}"
-            assert "session_token" not in captured.out, \
-                f"Session token leaked in stdout: {captured.out}"
+            assert (
+                "session_token" not in captured.out
+            ), f"Session token leaked in stdout: {captured.out}"
             # Sanity: the legitimate print line should still be present.
             assert "Submitted abc" in captured.out
         finally:

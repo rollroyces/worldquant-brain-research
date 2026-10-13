@@ -52,8 +52,9 @@ SUBINDUSTRIES = 5
 ALPHAS = ["alpha_a", "alpha_b", "alpha_c", "alpha_d"]
 
 
-def build_panel(stocks: int, days: int, subindustries: int,
-                alphas: list[str], seed: int = 42) -> pd.DataFrame:
+def build_panel(
+    stocks: int, days: int, subindustries: int, alphas: list[str], seed: int = 42
+) -> pd.DataFrame:
     """Generate a (date, stock_id, subindustry, return, alpha_*) panel.
 
     Synthetic and flat: roughly stationary alpha signals plus a small
@@ -68,10 +69,12 @@ def build_panel(stocks: int, days: int, subindustries: int,
     stock_to_sub = {stock_ids[i]: f"sub_{sub_assignments[i]}" for i in range(stocks)}
 
     n = stocks * days
-    df = pd.DataFrame({
-        "date": np.repeat(dates.values, stocks),
-        "stock_id": np.tile(stock_ids, days),
-    })
+    df = pd.DataFrame(
+        {
+            "date": np.repeat(dates.values, stocks),
+            "stock_id": np.tile(stock_ids, days),
+        }
+    )
     df["subindustry"] = df["stock_id"].map(stock_to_sub)
     df["return"] = rng.normal(0.0, 0.01, size=n).astype(np.float32)
     for name in alphas:
@@ -83,8 +86,7 @@ def build_panel(stocks: int, days: int, subindustries: int,
     return df
 
 
-def profile_one_alpha(panel: pd.DataFrame, alpha_col: str,
-                      sub_col: str) -> dict[str, float]:
+def profile_one_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str) -> dict[str, float]:
     """Break down evaluate_alpha into its sub-calls and time each one.
 
     Keeps the validator's internal logic intact — just calls the same
@@ -98,16 +100,17 @@ def profile_one_alpha(panel: pd.DataFrame, alpha_col: str,
     returns = panel_sorted["return"].values
 
     t = time.perf_counter()
-    daily_pnl_df = pd.DataFrame({
-        "date": panel_sorted["date"].values,
-        "pnl": alpha_signal * returns,
-    })
+    daily_pnl_df = pd.DataFrame(
+        {
+            "date": panel_sorted["date"].values,
+            "pnl": alpha_signal * returns,
+        }
+    )
     daily_pnl = daily_pnl_df.groupby("date")["pnl"].sum().values
     timings["daily_pnl"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    weight_panel = panel_sorted.pivot(index="date", columns="stock_id",
-                                      values=alpha_col)
+    weight_panel = panel_sorted.pivot(index="date", columns="stock_id", values=alpha_col)
     weights = weight_panel.fillna(0.0).values
     timings["pivot_weights"] = time.perf_counter() - t
 
@@ -132,8 +135,10 @@ def profile_one_alpha(panel: pd.DataFrame, alpha_col: str,
 
 def main() -> int:
     if not PANEL_PATH.exists():
-        print(f"[perf] Building synthetic panel ({STOCKS} x {DAYS} x {SUBINDUSTRIES}, "
-              f"alphas={ALPHAS})...")
+        print(
+            f"[perf] Building synthetic panel ({STOCKS} x {DAYS} x {SUBINDUSTRIES}, "
+            f"alphas={ALPHAS})..."
+        )
         panel = build_panel(STOCKS, DAYS, SUBINDUSTRIES, ALPHAS)
         panel.to_csv(PANEL_PATH, index=False)
         print(f"[perf] Wrote {PANEL_PATH} ({panel.shape[0]:,} rows)")
@@ -141,8 +146,10 @@ def main() -> int:
         print(f"[perf] Reusing existing {PANEL_PATH}")
         panel = pd.read_csv(PANEL_PATH)
 
-    print(f"[perf] Panel shape: {panel.shape}, "
-          f"alphas: {[c for c in panel.columns if c.startswith('alpha_')]}")
+    print(
+        f"[perf] Panel shape: {panel.shape}, "
+        f"alphas: {[c for c in panel.columns if c.startswith('alpha_')]}"
+    )
 
     # Warmup: load the brainlib caches (e.g., GroupBy dispatch). The first
     # call into pandas for a fresh DataFrame layout is meaningfully slower
@@ -160,10 +167,12 @@ def main() -> int:
         per_alpha[a] = time.perf_counter() - t0
         prof = profile_one_alpha(panel, a, sub_col)
         profile_totals[a] = prof
-        sub_parts = (f"pivot={prof['pivot_weights']*1000:.0f}ms  "
-                     f"sub_universe={prof['per_subuniverse_sharpe']*1000:.0f}ms  "
-                     f"metrics={prof['metrics']*1000:.0f}ms  "
-                     f"pnl_groupby={prof['daily_pnl']*1000:.0f}ms")
+        sub_parts = (
+            f"pivot={prof['pivot_weights']*1000:.0f}ms  "
+            f"sub_universe={prof['per_subuniverse_sharpe']*1000:.0f}ms  "
+            f"metrics={prof['metrics']*1000:.0f}ms  "
+            f"pnl_groupby={prof['daily_pnl']*1000:.0f}ms"
+        )
         print(f"[perf] {a}: {per_alpha[a]:.3f}s    |  {sub_parts}")
     overall = time.perf_counter() - overall_t0
 

@@ -91,6 +91,7 @@ from brainlib.gates import (
 # Metrics (per-alpha)
 # ---------------------------------------------------------------------------
 
+
 def annualized_return(daily_returns: np.ndarray) -> float:
     """Compound daily returns into an annualized figure."""
     if len(daily_returns) == 0:
@@ -136,8 +137,7 @@ def concentration(weights_today: np.ndarray) -> float:
     return float(np.abs(weights_today).max())
 
 
-def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str,
-                           sub_col: str) -> dict[Any, float]:
+def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str, sub_col: str) -> dict[Any, float]:
     """Sharpe ratio of the alpha within each value of sub_col.
 
     The keys are the actual values of `sub_col` (strings for typical
@@ -167,8 +167,10 @@ def per_subuniverse_sharpe(panel: pd.DataFrame, alpha_col: str,
 # Main
 # ---------------------------------------------------------------------------
 
-def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
-                   gates: GateConfig, self_correlation: float) -> dict:
+
+def evaluate_alpha(
+    panel: pd.DataFrame, alpha_col: str, sub_col: str, gates: GateConfig, self_correlation: float
+) -> dict:
     """Evaluate one alpha; return metrics + pass/fail + reasons."""
     panel = panel.sort_values(["date", "stock_id"])
     alpha_signal = panel[alpha_col].values
@@ -203,8 +205,7 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
     sub_cutoff_violations = []
     for sub, ssh in sub_sharpes.items():
         sub_size = panel[panel[sub_col] == sub]["stock_id"].nunique()
-        cutoff = gates_sub_universe_cutoff(shp, sub_size, full_size,
-                                           scale=gates.sub_universe_scale)
+        cutoff = gates_sub_universe_cutoff(shp, sub_size, full_size, scale=gates.sub_universe_scale)
         if ssh < cutoff:
             sub_cutoff_violations.append(f"{sub} ({ssh:.3f} < {cutoff:.3f})")
             worst_sub = sub
@@ -224,7 +225,9 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
         passes = False
         # Prepend the sub-universe failures so they're visible alongside
         # the other gate reasons.
-        reasons = [f"Sub-universe Sharpe failures: {', '.join(sub_cutoff_violations[:3])}"] + reasons
+        reasons = [
+            f"Sub-universe Sharpe failures: {', '.join(sub_cutoff_violations[:3])}"
+        ] + reasons
 
     return {
         "alpha": alpha_col,
@@ -244,19 +247,28 @@ def evaluate_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str,
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Local BRAIN alpha validator")
-    p.add_argument("--alphas",
-                   help="Optional: CSV with one row per alpha (col 'name'). "
-                        "The alpha signals themselves are read from the returns panel.")
+    p.add_argument(
+        "--alphas",
+        help="Optional: CSV with one row per alpha (col 'name'). "
+        "The alpha signals themselves are read from the returns panel.",
+    )
     p.add_argument("--returns-panel", required=True, help="Parquet or CSV of returns panel")
     p.add_argument("--sub-universe-column", default="subindustry")
     p.add_argument("--output", default="local_validation.csv")
-    p.add_argument("--alpha-prefix", default="alpha_",
-                   help="Column prefix in the returns panel that holds alpha signals")
-    p.add_argument("--expected-self-correlation", type=float, default=0.0,
-                   help="Max self-correlation against your prior submitted alphas "
-                        "(the validator cannot compute this from the panel alone; "
-                        "set this to the value the BRAIN self-corr endpoint returned "
-                        "for the most-correlated prior submission).")
+    p.add_argument(
+        "--alpha-prefix",
+        default="alpha_",
+        help="Column prefix in the returns panel that holds alpha signals",
+    )
+    p.add_argument(
+        "--expected-self-correlation",
+        type=float,
+        default=0.0,
+        help="Max self-correlation against your prior submitted alphas "
+        "(the validator cannot compute this from the panel alone; "
+        "set this to the value the BRAIN self-corr endpoint returned "
+        "for the most-correlated prior submission).",
+    )
     args = p.parse_args(argv)
 
     # Load returns panel.
@@ -277,15 +289,31 @@ def main(argv: list[str] | None = None) -> int:
     gates = DEFAULT_GATES
     results = []
     for col in alpha_cols:
-        result = evaluate_alpha(panel, col, args.sub_universe_column, gates,
-                                self_correlation=args.expected_self_correlation)
+        result = evaluate_alpha(
+            panel,
+            col,
+            args.sub_universe_column,
+            gates,
+            self_correlation=args.expected_self_correlation,
+        )
         results.append(result)
 
     # Write report.
     out_path = Path(args.output)
-    fieldnames = ["alpha", "sharpe", "fitness", "returns_annualized", "turnover",
-                  "drawdown", "concentration", "self_correlation", "min_sub_sharpe",
-                  "worst_sub_universe", "passes", "reasons"]
+    fieldnames = [
+        "alpha",
+        "sharpe",
+        "fitness",
+        "returns_annualized",
+        "turnover",
+        "drawdown",
+        "concentration",
+        "self_correlation",
+        "min_sub_sharpe",
+        "worst_sub_universe",
+        "passes",
+        "reasons",
+    ]
     with open(out_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
