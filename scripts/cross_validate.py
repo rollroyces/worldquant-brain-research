@@ -118,18 +118,22 @@ def _evaluate_period(
 ) -> PeriodMetrics:
     """Compute all metrics for one period (slice of the panel)."""
     panel = panel.sort_values(["date", "stock_id"])
-    alpha_signal = panel[alpha_col].values
-    returns = panel["return"].values
+    # Use .to_numpy() and np.asarray() to ensure we get plain ndarrays
+    # at the boundary — newer pandas may return ExtensionArray from
+    # .values, which mypy 1.13+ flags when downstream helpers expect
+    # plain ndarrays.
+    alpha_signal = panel[alpha_col].to_numpy()
+    returns = panel["return"].to_numpy()
 
     daily_pnl_series = (
-        pd.DataFrame({"date": panel["date"].values, "pnl": alpha_signal * returns})
+        pd.DataFrame({"date": panel["date"].to_numpy(), "pnl": alpha_signal * returns})
         .groupby("date")["pnl"]
         .sum()
     )
-    daily_pnl = daily_pnl_series.values
+    daily_pnl = np.asarray(daily_pnl_series)
 
     weight_panel = panel.pivot(index="date", columns="stock_id", values=alpha_col)
-    weights = weight_panel.fillna(0.0).values
+    weights = weight_panel.fillna(0.0).to_numpy()
     last_day = weights[-1] if len(weights) else np.array([0.0])
 
     to = _turnover(weights)

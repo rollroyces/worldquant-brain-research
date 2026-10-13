@@ -173,16 +173,23 @@ def evaluate_alpha(
 ) -> dict:
     """Evaluate one alpha; return metrics + pass/fail + reasons."""
     panel = panel.sort_values(["date", "stock_id"])
-    alpha_signal = panel[alpha_col].values
-    returns = panel["return"].values
+    # Use .to_numpy() instead of .values — newer pandas may return
+    # ExtensionArray from .values, which mypy 1.13+ flags when the
+    # downstream helper expects a plain ndarray.
+    alpha_signal = panel[alpha_col].to_numpy()
+    returns = panel["return"].to_numpy()
 
     # Daily pnl (sum of weight × return per day, collapsing stocks).
-    df = pd.DataFrame({"date": panel["date"].values, "pnl": alpha_signal * returns})
-    daily_pnl = df.groupby("date")["pnl"].sum().values
+    daily_pnl_series = (
+        pd.DataFrame({"date": panel["date"].to_numpy(), "pnl": alpha_signal * returns})
+        .groupby("date")["pnl"]
+        .sum()
+    )
+    daily_pnl = np.asarray(daily_pnl_series)
 
     # Weight per (date, stock) — pivot to handle missing (date, stock) pairs.
     weight_panel = panel.pivot(index="date", columns="stock_id", values=alpha_col)
-    weights = weight_panel.fillna(0.0).values
+    weights = weight_panel.fillna(0.0).to_numpy()
 
     # Concentration: max abs weight on the latest day.
     last_day_weights = weights[-1] if len(weights) else np.array([0.0])
