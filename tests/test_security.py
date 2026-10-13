@@ -6,7 +6,6 @@ Run with:  python3 -m pytest tests/ -v
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 
@@ -14,9 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import pytest
-
 from brain_harness import BrainClient, build_parser
-
 
 SECRET = "supersecret-PASSWORD-12345-do-not-log"
 EMAIL = "leak-test@example.com"
@@ -47,7 +44,6 @@ class TestCliHasNoPasswordFlag:
     """The CLI must not accept --password (would leak via ps/history)."""
 
     def test_parser_has_no_password_flag(self):
-        import argparse
         parser = build_parser()
         for sub_name in ("simulate", "batch", "submit", "gates"):
             # Parse --help on each subcommand; argparse will reject unknown
@@ -65,7 +61,6 @@ class TestSimulateErrorDoesNotLeakBody:
     """The simulate error message must not echo the response body."""
 
     def test_simulate_error_uses_keys_only(self, monkeypatch):
-        import brain_harness as bh
 
         # Build a client in non-mock mode and monkeypatch the session
         # to return a body without an id.
@@ -107,7 +102,6 @@ class TestSubmitAlphaResponseSanitized:
         # sensitive field. We re-import the script's cmd_submit flow by
         # inspecting the print logic.
         from brain_harness import cmd_submit
-        from brain_harness import BrainClient as BC
 
         # Patch BrainClient to a fake that returns a response containing
         # a secret field.
@@ -144,7 +138,6 @@ class TestSubmitAlphaResponseSanitized:
                 from_results="sim_*.json", max_per_day=4, mock=False,
             )
             client = FakeBC()
-            from brainlib.gates import DEFAULT_GATES
             from brain_harness import Gates
             gates = Gates()
             rc = cmd_submit(args, client, gates)

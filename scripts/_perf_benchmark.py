@@ -31,10 +31,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
-import numpy as np
+import numpy as np  # noqa: E402  (imports follow sys.path setup)
 import pandas as pd  # noqa: E402
-
-from subuniverse_validator import (  # noqa: E402
+from subuniverse_validator import (  # noqa: E402  (imports follow sys.path setup)
     annualized_return,
     concentration,
     evaluate_alpha,
@@ -43,8 +42,8 @@ from subuniverse_validator import (  # noqa: E402
     sharpe,
     turnover,
 )
-from brainlib.gates import DEFAULT_GATES  # noqa: E402
 
+from brainlib.gates import DEFAULT_GATES  # noqa: E402
 
 PANEL_PATH = Path("/tmp/perf_panel.csv")
 STOCKS = 500
@@ -177,9 +176,9 @@ def main() -> int:
     slow = [a for a, t in per_alpha.items() if t > 5.0]
     if slow:
         print(f"[perf] SLOW: alphas over 5s: {slow}")
-        print(f"[perf] See docs/PERFORMANCE.md for bottleneck candidates.")
+        print("[perf] See docs/PERFORMANCE.md for bottleneck candidates.")
     else:
-        print(f"[perf] All alphas < 5s on this panel size; no current bottleneck.")
+        print("[perf] All alphas < 5s on this panel size; no current bottleneck.")
 
     return 0
 

@@ -65,8 +65,8 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 except ImportError:
     print("This script requires pandas and numpy. Run: pip install pandas numpy", file=sys.stderr)
     sys.exit(1)
@@ -76,11 +76,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brainlib.gates import (  # noqa: E402
     DEFAULT_GATES,
     GateConfig,
+)
+from brainlib.gates import (
     evaluate as gates_evaluate,
+)
+from brainlib.gates import (
     fitness as gates_fitness,
+)
+from brainlib.gates import (
     sub_universe_cutoff as gates_sub_universe_cutoff,
 )
-
 
 # ---------------------------------------------------------------------------
 # Metrics (per-alpha)

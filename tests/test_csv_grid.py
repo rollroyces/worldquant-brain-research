@@ -24,10 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-import pytest
 
 from brain_harness import _load_grid
-
 
 EXAMPLE_CSV = Path(__file__).resolve().parent.parent / "examples" / "alpha_grid_example.csv"
 

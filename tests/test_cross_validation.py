@@ -18,14 +18,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from cross_validate import (
     _annualized_return,
     _concentration,
-    _evaluate_period,
     _max_drawdown,
     _sharpe,
     _turnover,
     cross_validate,
 )
 from parameter_sweep import fragility_summary, sweep
-
 
 # ---------------------------------------------------------------------------
 # Cross-validate helpers

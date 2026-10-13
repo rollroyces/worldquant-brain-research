@@ -2,8 +2,8 @@
 
 from brainlib.gates import (
     DEFAULT_GATES,
-    GateConfig,
     US_DELAY1,
+    GateConfig,
     evaluate,
     fitness,
     sub_universe_cutoff,

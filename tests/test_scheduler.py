@@ -13,14 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import pytest
-
 from iqc_scheduler import (
     DEFAULT_POOL,
     _pick_template_by_region,
     _pick_template_for_family,
     build_schedule,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper unit tests

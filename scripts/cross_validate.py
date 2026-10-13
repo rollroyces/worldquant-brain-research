@@ -42,8 +42,8 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 except ImportError:
     print("This script requires pandas and numpy.", file=sys.stderr)
     sys.exit(1)
@@ -51,7 +51,11 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brainlib.gates import (  # noqa: E402
     DEFAULT_GATES,
+)
+from brainlib.gates import (
     evaluate as gates_evaluate,
+)
+from brainlib.gates import (
     fitness as gates_fitness,
 )
 
@@ -240,7 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     # Report
     print(f"\n=== Cross-validation: {args.alpha_column} ===")
     print(f"Split:    IS={is_m.n_days} days, OS={os_m.n_days} days")
-    print(f"          ratio={('%.3f' % ratio) if not math.isnan(ratio) else 'n/a (IS Sharpe ~0)'}")
+    ratio_str = f"{ratio:.3f}" if not math.isnan(ratio) else "n/a (IS Sharpe ~0)"
+    print(f"          ratio={ratio_str}")
     print()
     print(f"{'Metric':<22s}  {'IS':>12s}  {'OS':>12s}")
     print("-" * 50)

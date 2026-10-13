@@ -65,8 +65,8 @@ except ImportError:
 
 # Make brainlib importable when running this script directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from brainlib.gates import DEFAULT_GATES, GateConfig, evaluate as _gates_evaluate  # noqa: E402
-
+from brainlib.gates import DEFAULT_GATES, GateConfig  # noqa: E402
+from brainlib.gates import evaluate as _gates_evaluate
 
 # ---------------------------------------------------------------------------
 # Configuration

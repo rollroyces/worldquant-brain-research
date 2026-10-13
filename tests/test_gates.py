@@ -12,17 +12,14 @@ from pathlib import Path
 # Make brainlib importable from tests/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pytest
 
 from brainlib import gates
 from brainlib.gates import (
-    DEFAULT_GATES,
     GateConfig,
     evaluate,
     fitness,
     sub_universe_cutoff,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fitness formula

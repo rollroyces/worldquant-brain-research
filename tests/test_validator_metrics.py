@@ -11,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -25,7 +24,6 @@ from subuniverse_validator import (
     sharpe,
     turnover,
 )
-
 
 # ---------------------------------------------------------------------------
 # Metric helpers
@@ -180,8 +178,8 @@ class TestEvaluateAlpha:
         # Use a stronger alpha (square the signal) to get Sharpe > 1.375.
         panel2 = panel.copy()
         panel2["alpha_test"] = panel2["alpha_test"] ** 2 * np.sign(panel2["alpha_test"])
-        result = evaluate_alpha(panel2, "alpha_test", "subindustry", DEFAULT_GATES,
-                                self_correlation=0.85)
+        evaluate_alpha(panel2, "alpha_test", "subindustry", DEFAULT_GATES,
+                       self_correlation=0.85)
         # If Sharpe > 1.375 the override should engage — but the sub-universe
         # check might still fire. We at least assert that the self-corr gate
         # is NOT the reason for failure when Sharpe is high.

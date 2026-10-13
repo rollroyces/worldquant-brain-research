@@ -206,10 +206,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Sharpe median:{summary['median_sharpe']:.3f}")
     print(f"  Sharpe std:   {summary['sharpe_std']:.3f}")
     if summary["fragile"]:
-        print(f"  → FRAGILE: pass rate below 75%. "
-              f"Consider sweeping the alpha's expression or parameters more carefully.")
+        print("  → FRAGILE: pass rate below 75%. "
+              "Consider sweeping the alpha's expression or parameters more carefully.")
     else:
-        print(f"  → ROBUST: pass rate at or above 75%.")
+        print("  → ROBUST: pass rate at or above 75%.")
 
     return 0
 

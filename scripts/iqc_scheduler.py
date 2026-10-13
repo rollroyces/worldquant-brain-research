@@ -39,7 +39,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Template pool
 # ---------------------------------------------------------------------------
@@ -303,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     write_schedule(schedule, out)
     print(summarize(schedule))
     print(f"\nWrote: {out}")
-    print(f"First 5 rows:")
+    print("First 5 rows:")
     for row in schedule[:5]:
         print(f"  {row['date']}  slot={row['slot']}  {row['family']:<12s}  "
               f"{row['region']:<5s}  {row['settings']}")
