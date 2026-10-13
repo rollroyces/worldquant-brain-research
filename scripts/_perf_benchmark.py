@@ -96,17 +96,19 @@ def profile_one_alpha(panel: pd.DataFrame, alpha_col: str, sub_col: str) -> dict
     t_overall = time.perf_counter()
 
     panel_sorted = panel.sort_values(["date", "stock_id"])
-    alpha_signal = panel_sorted[alpha_col].values
-    returns = panel_sorted["return"].values
+    # Use .to_numpy() / np.asarray() at the boundary so mypy sees
+    # plain ndarrays, not pandas ExtensionArrays.
+    alpha_signal = panel_sorted[alpha_col].to_numpy()
+    returns = panel_sorted["return"].to_numpy()
 
     t = time.perf_counter()
     daily_pnl_df = pd.DataFrame(
         {
-            "date": panel_sorted["date"].values,
+            "date": panel_sorted["date"].to_numpy(),
             "pnl": alpha_signal * returns,
         }
     )
-    daily_pnl = daily_pnl_df.groupby("date")["pnl"].sum().values
+    daily_pnl = np.asarray(daily_pnl_df.groupby("date")["pnl"].sum())
     timings["daily_pnl"] = time.perf_counter() - t
 
     t = time.perf_counter()
