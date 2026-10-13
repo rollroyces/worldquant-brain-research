@@ -31,19 +31,19 @@ repos:
   # Tests/ is intentionally excluded here (see mypy.ini — they have looser
   # settings and CI's mypy job still covers them separately).
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.13.0
     hooks:
       - id: mypy
         name: mypy (brainlib + scripts)
         files: ^(brainlib|scripts)/
         args: [--config-file=mypy.ini]
-        # Pin mypy to the same version CI uses (1.10.0). Without pinning,
-        # pre-commit pulls the latest mypy + a newer numpy stub that uses
-        # Python 3.12 type syntax and chokes older mypy.
+        # mypy 1.13+ supports the Python 3.12 'type' statement syntax
+        # used by recent numpy stubs. Pinning to 1.10.0 caused the hook
+        # to fail on the numpy stub parse.
         # Include the project deps so mypy can resolve their type stubs.
         additional_dependencies:
-          - "mypy==1.10.0"
-          - "numpy"
+          - "mypy==1.13.0"
+          - "numpy<2.1"
           - "pandas"
           - "pandas-stubs"
           - "requests"
