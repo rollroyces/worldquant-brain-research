@@ -1,7 +1,7 @@
 # Pre-commit hooks for worldquant-brain-research.
 #
-# Hook order matters: format first (ruff-format), then lint (ruff --fix), then
-# type check (mypy), then hygiene hooks, then the local pytest smoke.
+# Hook order matters: format first (ruff-format), then lint (ruff --fix),
+# then type check (mypy), then hygiene hooks.
 #
 # Reinstall after editing this file:
 #   pre-commit install
@@ -37,8 +37,10 @@ repos:
         name: mypy (brainlib + scripts)
         files: ^(brainlib|scripts)/
         args: [--config-file=mypy.ini]
-        # pandas-stubs keeps mypy from complaining about DataFrame access.
-        additional_dependencies: [pandas-stubs]
+        # Pin the same mypy version locally that the CI mypy job uses.
+        # Without this, pre-commit pulls the latest mypy + a numpy stub
+        # that uses Python 3.12 type syntax and chokes older mypy.
+        additional_dependencies: ["mypy==1.10.0"]
 
   # ----- standard pre-commit hygiene hooks -----
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -49,14 +51,8 @@ repos:
       - id: check-yaml
       - id: check-toml
 
-  # ----- local pytest smoke: keep the cheap gates test green per-commit -----
-  # `tests/test_gates.py` is the fastest file (canonical gate logic, no fixtures)
-  # so it's the right "did I break anything obvious?" gate before pushing.
-  - repo: local
-    hooks:
-      - id: pytest-smoke
-        name: pytest smoke (tests/test_gates.py)
-        entry: python -m pytest tests/test_gates.py -x -q --no-header
-        language: system
-        pass_filenames: false
-        always_run: true
+  # Note: no pytest smoke hook here. The full pytest matrix (3.10/3.11/3.12)
+  # is already a separate CI job; running it again via pre-commit would
+  # duplicate work and the hook's system-Python invocation can't see
+  # project-installed pytest. If you want a pre-push safety net, run
+  # `python -m pytest tests/test_gates.py` manually before pushing.
